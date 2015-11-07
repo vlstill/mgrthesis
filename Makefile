@@ -4,7 +4,7 @@ all : thesis.pdf
 	make -C draft
 
 thesis.pdf : thesis.tex $(ALL:.md=.tex) bibliography.bib
-	rubber -Wall --pdf $<
+	./latexwrap $<
 
 %.tex : %.md
 	pandoc $< -o $@

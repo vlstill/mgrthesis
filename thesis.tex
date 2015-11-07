@@ -1,8 +1,15 @@
 \documentclass[11pt,twoside,a4paper]{book}
 \usepackage[czech,english]{babel} % package for multilingual support
-% \usepackage{lmodern}
-\usepackage[utf8]{inputenc} 
-\usepackage[T1]{fontenc}
+
+\RequirePackage{iftex}
+\ifPDFTeX
+    \usepackage[utf8]{inputenc} 
+    \usepackage[T1]{fontenc}
+    % \usepackage{lmodern}
+\else
+    \RequirePackage{fontspec} % UFT8 fonts for LuaLaTeX
+    % \setmainfont{Latin Modern Roman}
+\fi
 \usepackage{csquotes}
 
 \usepackage[ backend=biber
