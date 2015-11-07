@@ -1,0 +1,184 @@
+\documentclass[11pt,twoside,a4paper]{book} % twoside
+\usepackage[czech,english]{babel} % package for multilingual support
+% \usepackage{lmodern}
+\usepackage[utf8]{inputenc} 
+\usepackage[T1]{fontenc}
+
+\usepackage[ backend=biber
+           , style=numeric
+           , babel=other
+           , sortlocale=cs_CZ
+          , bibencoding=UTF8
+           ]{biblatex}
+
+\usepackage{xcolor}
+\definecolor{dark-red}{rgb}{0.6,0.15,0.15}
+\definecolor{dark-green}{rgb}{0.15,0.4,0.15}
+\definecolor{medium-blue}{rgb}{0,0,0.5}
+\usepackage[ plainpages=false
+           , pdfpagelabels
+           , unicode
+           , draft=false
+           , colorlinks=true
+           , linkcolor={dark-red}
+           , citecolor={dark-green}
+           , urlcolor={medium-blue}
+           ]{hyperref}
+
+\usepackage{verbatim}
+\usepackage[final]{listings}
+\lstset{ language=C++ }
+\usepackage{paralist}
+
+\usepackage{xspace}
+\usepackage{pgf}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usepackage{pgfplots}
+
+\usepackage{multirow}
+\usepackage{microtype}
+
+\newcommand{\divine}{\mbox{\textsf{DIVINE}}}
+\newcommand{\dve}{DVE}
+\newcommand{\cesmi}{\mbox{\textsc{Cesmi}}}
+\newcommand{\por}{partial order reduction}
+\newcommand{\Por}{Partial order reduction}
+\newcommand{\ndfs}{NestedDFS}
+\newcommand{\owcty}{OWCTY}
+\newcommand{\map}{MAP}
+\newcommand{\paradise}{ParaDiSe}
+\newcommand{\buchi}{büchi}
+\newcommand{\mc}{model checking}
+\newcommand{\mcer}{model-checker}
+\newcommand{\Mcer}{Model-checker}
+\newcommand{\Mc}{Model checking}
+
+\newcommand{\spin}{\mbox{\textsc{Spin}}} 
+\newcommand{\ltsmin}{\mbox{LTSmin}}
+\newcommand{\collapse}{\textsc{Collapse}}
+
+\newcommand{\llvm}{\textsf{LLVM}}
+\newcommand{\ltl}{LTL}
+
+\newcommand{\coin}{CoIn}
+\newcommand{\uppaal}{\mbox{\textsc{UppAal}}}
+
+\newcommand{\dfs}{DFS}
+\newcommand{\bfs}{BFS}
+
+\newcommand{\tc}{tree compression}
+\newcommand{\Tc}{Tree compression}
+\newcommand{\tced}{tree-compressed}
+\newcommand{\Tced}{Tree-compressed}
+
+\newcommand{\Hc}{Hash compaction}
+\newcommand{\hc}{hash compaction}
+
+\newcommand{\mpi}{MPI}
+
+\newcommand{\darcs}{Darcs}
+\newcommand{\beem}{\mbox{\textsc{Beem}}}
+
+\newcommand{\FI}{Faculty of Informatics}
+\newcommand{\MU}{Masaryk University}
+
+\newcommand{\Jirik}{doc. RNDr. Jiří Barnat, Ph.D.}
+\newcommand{\Mornfall}{RNDr. Petr Ročkai, Ph.D.}
+
+\newcommand{\thesistitle}{\llvm{} Transformations for Model Checking} % enter thesis title
+\newcommand{\thesissubtitle}{Master's thesis}
+\newcommand{\thesisauthor}{Vladimír Štill}
+\newcommand{\thesisYearCity}{Brno, 2016}
+\newcommand{\thesisadvisor}{\Jirik}
+
+\addbibresource{bibliography.bib}
+
+\usepackage{setspace}
+
+\oddsidemargin .85in
+\evensidemargin .65in
+\textwidth 12.7cm
+
+\pgfplotsset{width=\textwidth}
+
+
+\begin{document}
+
+% initial pages from Mornfall + modifications
+
+\frontmatter
+\pagestyle{empty}
+ 
+\begin{center}
+    {\Large \sc \FI, \MU}
+    \vskip4em
+    \includegraphics[width = 4cm, height = 4cm] {logo_fi.pdf}
+    \vskip4em
+    {\begin{spacing}{1}
+        \Huge \bf \thesistitle
+    \end{spacing}}
+    \vskip2em
+    {\Large \sc \thesissubtitle}
+    \vskip4em
+    {\LARGE \bf \thesisauthor}
+    \vfill
+    {\hfill \large \thesisYearCity}
+\end{center}
+ 
+\cleardoublepage
+
+\section*{Declaration} % from Mornfall
+Thereby I declare that this thesis is my original work, which I have
+created on my own. All sources and literature used in writing the
+thesis, as well as any quoted material, are properly cited, including
+full reference to its source.
+
+\vfill
+\textbf{Advisor:} \thesisadvisor
+
+\cleardoublepage
+
+\section*{Abstract}
+% The main focus of this thesis is on a reduction of memory requirements of 
+% an explicit-state \ltl{} \mcer{} by use of \tc{}. Presented technique is
+% successfully applied to model checking of real world threaded C and C++
+% programs as well as some modeling formalisms dedicated for \mc{}.
+
+\section*{Keywords}
+% \Mc{}, \divine{}, Implementation, \Tc{}, State-space explosion
+
+\cleardoublepage
+
+\section*{Acknowledgements}
+% First I would like to thank the Parallel and Distributed Systems Laboratory.
+% It is great place to learn new things and to work on interesting problems,
+% with nice people ready to help to a newcomer like me. Namely, I would like to
+% thank \Jirik{} for inviting me to laboratory and advising this thesis,
+% \Mornfall{} for giving me insights into C++ and \divine{} and
+% \Jana{} for supporting and motivating my journey for knowledge.
+% 
+% I would also like to thank my family and my friends for supporting me and having
+% patience with me.
+
+\cleardoublepage
+% \clearpage
+\thispagestyle{empty}
+
+\pagestyle{headings}
+\tableofcontents % prints table of contents
+\mainmatter
+
+
+\chapter{Introduction}\label{chap:introduction}
+\input{intro}
+
+\chapter{\divine}
+\input{divine}
+
+\chapter{Conclusion}
+\input{conclusion}
+
+\printbibliography
+
+\end{document}

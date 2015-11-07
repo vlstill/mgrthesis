@@ -1,2 +1,1 @@
-# mgrthesis
-Master thesis: Optimization of LLVM Bitcode fo Verification Using DIVINE Model Checker
+# Master thesis: Optimization of LLVM Bitcode for Verification Using DIVINE Model Checker
