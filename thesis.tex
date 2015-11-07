@@ -1,14 +1,14 @@
-\documentclass[11pt,twoside,a4paper]{book} % twoside
+\documentclass[11pt,twoside,a4paper]{book}
 \usepackage[czech,english]{babel} % package for multilingual support
 % \usepackage{lmodern}
 \usepackage[utf8]{inputenc} 
 \usepackage[T1]{fontenc}
+\usepackage{csquotes}
 
 \usepackage[ backend=biber
            , style=numeric
-           , babel=other
-           , sortlocale=cs_CZ
-          , bibencoding=UTF8
+           , sortlocale=en_US
+           , bibencoding=UTF8
            ]{biblatex}
 
 \usepackage{xcolor}
@@ -34,7 +34,6 @@
 \usepackage{pgf}
 \usepackage{tikz}
 \usetikzlibrary{arrows}
-\usepackage{pgfplots}
 
 \usepackage{multirow}
 \usepackage{microtype}
@@ -100,8 +99,8 @@
 \evensidemargin .65in
 \textwidth 12.7cm
 
-\pgfplotsset{width=\textwidth}
-
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
 \begin{document}
 
@@ -173,10 +172,13 @@ full reference to its source.
 \chapter{Introduction}\label{chap:introduction}
 \input{intro}
 
-\chapter{\divine}
+\chapter{\llvm} \label{chap:llvm}
+\input{llvm}
+
+\chapter{\divine} \label{chap:divine}
 \input{divine}
 
-\chapter{Conclusion}
+\chapter{Conclusion} \label{chap:conclusion}
 \input{conclusion}
 
 \printbibliography
