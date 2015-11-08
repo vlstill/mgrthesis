@@ -130,3 +130,15 @@ sympy-plots-for-*.tex/
 .*.swo
 *~
 *.pdf
+
+# pandoc by-products
+README.tex
+conclusion.tex
+divine.tex
+extend.tex
+intro.tex
+llvm.tex
+reduce.tex
+related.tex
+results.tex
+template.tex
