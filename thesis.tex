@@ -45,46 +45,31 @@
 \usepackage{multirow}
 \usepackage{microtype}
 
-\newcommand{\divine}{\mbox{\textsf{DIVINE}}}
-\newcommand{\dve}{DVE}
-\newcommand{\cesmi}{\mbox{\textsc{Cesmi}}}
-\newcommand{\por}{partial order reduction}
-\newcommand{\Por}{Partial order reduction}
-\newcommand{\ndfs}{NestedDFS}
-\newcommand{\owcty}{OWCTY}
-\newcommand{\map}{MAP}
-\newcommand{\paradise}{ParaDiSe}
-\newcommand{\buchi}{büchi}
-\newcommand{\mc}{model checking}
-\newcommand{\mcer}{model-checker}
-\newcommand{\Mcer}{Model-checker}
-\newcommand{\Mc}{Model checking}
+\newcommand{\divine}{\mbox{\textsf{DIVINE}}\xspace}
+\newcommand{\lart}{\mbox{\textsf{LART}}\xspace}
 
-\newcommand{\spin}{\mbox{\textsc{Spin}}} 
-\newcommand{\ltsmin}{\mbox{LTSmin}}
-\newcommand{\collapse}{\textsc{Collapse}}
+\newcommand{\paradise}{ParaDiSe\xspace}
+\newcommand{\buchi}{büchi\xspace}
+\newcommand{\mc}{model checking\xspace}
+\newcommand{\mcer}{model-checker\xspace}
+\newcommand{\Mcer}{Model-checker\xspace}
+\newcommand{\Mc}{Model checking\xspace}
 
-\newcommand{\llvm}{\textsf{LLVM}}
-\newcommand{\ltl}{LTL}
+\newcommand{\spin}{\mbox{\textsc{Spin}}\xspace} 
+\newcommand{\ltsmin}{\mbox{LTSmin}\xspace}
 
-\newcommand{\coin}{CoIn}
-\newcommand{\uppaal}{\mbox{\textsc{UppAal}}}
+\newcommand{\llvm}{\textsf{LLVM}\xspace}
+\newcommand{\ltl}{LTL\xspace}
 
-\newcommand{\dfs}{DFS}
-\newcommand{\bfs}{BFS}
+\newcommand{\dfs}{DFS\xspace}
+\newcommand{\bfs}{BFS\xspace}
 
-\newcommand{\tc}{tree compression}
-\newcommand{\Tc}{Tree compression}
-\newcommand{\tced}{tree-compressed}
-\newcommand{\Tced}{Tree-compressed}
+\newcommand{\tc}{tree compression\xspace}
+\newcommand{\Tc}{Tree compression\xspace}
+\newcommand{\tced}{tree-compressed\xspace}
+\newcommand{\Tced}{Tree-compressed\xspace}
 
-\newcommand{\Hc}{Hash compaction}
-\newcommand{\hc}{hash compaction}
-
-\newcommand{\mpi}{MPI}
-
-\newcommand{\darcs}{Darcs}
-\newcommand{\beem}{\mbox{\textsc{Beem}}}
+\newcommand{\darcs}{Darcs\xspace}
 
 \newcommand{\FI}{Faculty of Informatics}
 \newcommand{\MU}{Masaryk University}
@@ -152,7 +137,8 @@ full reference to its source.
 % programs as well as some modeling formalisms dedicated for \mc{}.
 
 \section*{Keywords}
-% \Mc{}, \divine{}, Implementation, \Tc{}, State-space explosion
+\Mc, \llvm, Verification, \divine, \lart, \llvm-to-\llvm Transformation,
+Implementation
 
 \cleardoublepage
 
@@ -184,6 +170,18 @@ full reference to its source.
 
 \chapter{\divine} \label{chap:divine}
 \input{divine}
+
+\chapter{Related Work} \label{chap:related}
+\input{related}
+
+\chapter{Feature Extension through \llvm-to-\llvm Transformations}
+\input{extend}
+
+\chapter{State Space Reduction through \llvm-to-\llvm Transformations}
+\input{reduce}
+
+\chapter{Results} \label{chap:results}
+\input{results}
 
 \chapter{Conclusion} \label{chap:conclusion}
 \input{conclusion}

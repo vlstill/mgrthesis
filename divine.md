@@ -4,6 +4,16 @@
 
 # Overall Architecture
 
-# \llvm{} Interpretation
+# \llvm{} in \divine
 
+## Interpreter
 
+## Userspace
+
+# Reduction Techniques
+
+## $\tau+$ and Heap Reductions
+
+## \Tc
+
+# \lart
