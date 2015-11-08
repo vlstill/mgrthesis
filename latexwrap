@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 [ -x $(which lualatex) ] || { echo "luaflatex not found!" >&2; exit 1; }
 
 # parse -I parameters and convert them to TEXINPUTS variable
@@ -37,7 +35,7 @@ for i in {1..5}; do
             base=$(echo $FILE | sed 's/.tex//')
             if ! biber $base >& ${base}.bib.log; then
                 cat ${base}.bib.log
-                exit 2
+                exit 3
             fi
             echo -n 'b'
             rerun=1
