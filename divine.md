@@ -54,7 +54,7 @@ As a terminology, we will denote all the parts implemented in \llvm bitcode,
 that is the bitcode libraries together with user-provided code as the
 *userspace*, to distinguish it from the interpreter, which is compiled into
 \divine. Unlike the interpreter, the userspace can be easily changed, or even
-completely replaced without the need to modify \divine itself.
+completely replaced without the need to modify and recompile \divine itself.
 
 ## Interpreter
 
