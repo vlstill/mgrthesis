@@ -3,7 +3,7 @@ ALL=$(wildcard *.md)
 all : thesis.pdf
 	make -C draft
 
-thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl
+thesis.pdf : thesis.tex $(ALL:.md=.tex)
 	./latexwrap $<
 
 thesis.bbl : bibliography.bib
@@ -11,5 +11,6 @@ thesis.bbl : bibliography.bib
 
 %.tex : %.md
 	pandoc $< -o $@
+	@# sed -i $@ -re 's/\\label\{[^}]*-[^}]*\}//'
 
 
