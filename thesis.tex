@@ -1,5 +1,5 @@
 \documentclass[11pt,twoside,a4paper]{book}
-\usepackage[czech,english]{babel} % package for multilingual support
+\usepackage[shorthands=off,czech,english]{babel} % package for multilingual support
 
 \RequirePackage{iftex}
 \ifPDFTeX
@@ -30,12 +30,17 @@
            , linkcolor={dark-red}
            , citecolor={dark-green}
            , urlcolor={medium-blue}
+           , unicode=true
            ]{hyperref}
 
+\usepackage{amssymb,amsmath}
 \usepackage{verbatim}
 \usepackage[final]{listings}
 \lstset{ language=C++ }
 \usepackage{paralist}
+% use upquote for straight quotes in verbatim environments
+\usepackage{upquote}
+\usepackage{markdownsyntax}
 
 \usepackage{xspace}
 \usepackage{pgf}
