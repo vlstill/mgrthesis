@@ -11,7 +11,9 @@ thesis.bbl : bibliography.bib
 
 %.tex : %.md
 	pandoc $< -o $@
-	sed -i $@ -re 's/ \\cite/~\\cite/'
+	sed -i $@ -re 's/ \\cite/~\\cite/' \
+		-e 's/^\\section\{@FIG:([^\}]*)\}.*$$/\\begin{figure}[\1]/' \
+		-e 's/^\\section\{@eFIG\}.*$$/\\end{figure}/'
 	@# sed -i $@ -re 's/\\label\{[^}]*-[^}]*\}//'
 
 

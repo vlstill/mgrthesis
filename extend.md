@@ -1,4 +1,118 @@
 
+# New Interface for Atomic Sections
+
+The interface for declaring atomic sections in verified code (described in
+\autoref{sec:divine:interp}) is hard to use, the main reason being that while
+the mask set by `__divine_interrupt_mask` is inherited by called functions,
+these have no way of knowing if they are inside atomic section, and more
+importantly, they can end the atomic section by calling
+`__divine_interrupt_unmask`. This is especially bad for composition of atomic
+functions, see \autoref{fig:ex:atomic:bad} for example. For this reason, the only
+compositionally safe way to use \divine's original atomic sections is to never
+call `__divine_interrupt_unmask` and let \divine end the atomic section when the
+caller of `__divine_interrupt_mask` ends.
+
+#@FIG:tp
+
+```{.cpp .numberLines}
+void doSomething( int *ptr, int val ) {
+    __divine_interrupt_mask();
+    *ptr += val;
+    __divine_interrupt_unmask();
+    foo( ptr );
+}
+
+int main() {
+    int x = 0;
+    __divine_interrupt_mask();
+    doSomething( &x );
+    __divine_interrupt_unmask();
+}
+```
+\caption{Example of composition problem with original \divine atomic sections
+--- the atomic section begins on line 10 and is inherited to
+\texttt{doSomething}, but the atomic section ends by the unmask call at line 4
+and the rest of \texttt{doSomething} and \texttt{foo} are not executed
+atomically. The atomic section is then re-entered when \texttt{doSomething}
+returns.}
+\label{fig:ex:atomic:bad}
+#@eFIG
+
+To alleviate aforementioned problems we reimplemented atomic sections in
+\divine. The new design uses only one *interrup flag* to indicate that current
+thread of execution is in atomic section, this flag is internal to the
+interpreter and need not be saved in the state --- indeed it would be always set
+to false in the state emitted by the generator because the state can never be
+emitted in the middle of atomic section. Furthermore, we modified
+`__divine_interrupt_mask` to return `int` value corresponding to value of
+interrupt flag before it was set by this call to `__divine_interrupt_mask`.
+
+To make using new atomic sections easier we provide higher level interface for
+atomic sections by the means of a C++ library and annotations. The C++ interface
+is intended to be used mostly by developers of language bindings for \divine,
+while the annotations are designed to be usable by end-users of \divine.
+
+The C++ interface is RAII-based[^raii], it works similar to C++11 `unique_lock`
+with recursive mutexes --- an atomic section begins by construction of object of
+type `divine::InterruptMask` and is left either by call of `release` method on
+this object, or by in the destructor of `InterruptMask` object. If atomic
+sections are nested, only the outermost `release` actually ends the atomic
+section. See \autoref{fig:ex:atomic:cpp} for an example.
+
+#@FIG:tp
+```{.cpp}
+#include <divine/interrupt.h>
+
+void doSomething( int *ptr, int val ) {
+    divine::InterruptMask mask;
+    *ptr += val;
+    // relea the mask only if no mask higher on stack:
+    mask.release();
+    // masked only if caller of doSomething was masked:
+    foo( ptr );
+}
+
+int main() {
+    int x = 0;                    // not masked
+    divine::InterruptMask mask;
+    doSomething( &x );            // maksed
+    // mask ends automatically at the end of main
+}
+```
+
+\caption{An example of use of C++ interface for the new atomic sections in
+\divine.}
+\label{fig:ex:atomic:cpp}
+#@eFIG
+
+[^raii]: Resource Acquisition Is Initialization, a common pattern in C++ in
+which a resource is allocated inside object and safely deallocated when that
+object exits scope, usually at the end of function. \TODO{odkaz, citace?}
+
+The annotation interface is based on \lart transformation pass and annotations
+which can be used to mark functions atomic. This way, entire functions can
+be marked atomic by adding `__lart_atomic_function` to their header, see
+\autoref{fig:ex:atomic:lart} for an example.
+
+#@FIG:tp
+```{.cpp}
+#include <lart/atomic>
+
+int atomicInc( int *ptr, int val ) __lart_atomic_function {
+    int prev = *ptr;
+    *ptr += val;
+    return prev;
+}
+```
+\caption{An example of usage of annotation interface for atomic functions in
+\divine{} --- the function \texttt{atomicInc} is aways executed atomically and is
+safe to be executed inside another function annotated as atomic.}
+\label{fig:ex:atomic:lart}
+#@eFIG
+
+\TODO{implementation}
+
+
 # Local Variable Cleanup
 
 When enriching \llvm bitcode in a way which modifies local variables it is
