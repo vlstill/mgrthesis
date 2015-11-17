@@ -11,6 +11,7 @@ thesis.bbl : bibliography.bib
 
 %.tex : %.md
 	pandoc $< -o $@
+	sed -i $@ -re 's/ \\cite/~\\cite/'
 	@# sed -i $@ -re 's/\\label\{[^}]*-[^}]*\}//'
 
 

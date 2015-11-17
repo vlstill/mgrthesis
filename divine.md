@@ -266,9 +266,13 @@ struct _DivineLP_Info *__divine_landingpad( int frameid );
 
 ## Userspace
 
+
+
 # Reduction Techniques
 
 ## $\tau+$ and Heap Reductions
+
+\label{sec:divine:tau}
 
 *   \cite{RBB13} $\tau+$
 

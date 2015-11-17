@@ -1,29 +1,27 @@
-# Weak Memory Models
-
-\cite{SRB15}
-
-## Invalidated Variable Store Problem
-
-\label{sec:extend:wm:invstore}
 
 # Local Variable Cleanup
 
-It is often necessary to perform cleaning operation at the end of the scope of
-a local variable, one of these cases is mentioned in
-\autoref{sec:extend:wm:invstore}, another can arise from compiled-in
-abstractions proposed in \cite{RockaiPhD}. These variable cleanups are
-essentially akin to C++ destructors in a sense that they get executed at the end
-of scope of the variable, no matter how this happens, with only exception of
-thread termination.
+When enriching \llvm bitcode in a way which modifies local variables it is
+often necessary to perform cleaning operation at the end of the scope of these
+variables. One of these cases is mentioned in \autoref{sec:extend:wm:invstore},
+another can arise from compiled-in abstractions proposed in \cite{RockaiPhD}.
+These variable cleanups are essentially akin to C++ destructors in a sense that
+they get executed at the end of scope of the variable, no matter how this
+happens, with only exception of thread termination.
 
-Implementing variable cleanups for languages without exception handling, such as
+Implementing variable cleanups for languages without non-local control flow
+transfer other then with `call` and `return` instructions, for example standard
 C, would be fairly straight-forward --- it is sufficient to run cleanup just
 before function returns and clean-up any local variables from which this
-particular return point is reachable. In presence of exception handling, such as
-in case of C++, the situation is more complicated. Since we target C++ and allow
-programs with exception we will now focus on this case, through the lens of
-\llvm representation of exception handling (for details on \llvm exception
-handling see \autoref{sec:llvm:eh}.
+particular return point is reachable. However, while pure standard-compliant C
+has no non-local control transfer, in POSIX there are `setjmp` and `longjmp`
+functions which allow non-local jumps and, even more importantly, C++ has
+exceptions already in its standard.
+
+In presence of exception handling, the situation is more complicated. Since we
+target C++ and allow programs with exception we will now focus on this case,
+through the lens of \llvm representation of exception handling (for details on
+\llvm exception handling see \autoref{sec:llvm:eh}.
 
 Here we need to make sure that cleanup runs not only in the case of normal exit
 from a function by the means of return instruction, but also when the function
@@ -64,6 +62,7 @@ flag for `landingpad`). The instrumentation can be done as follows:
     2.  add `cleanup` flag into `landingpad` of the unwind block of the `invoke` and
         branch into *resume block* if landing block is triggered due to
         `cleanup`.
+*   \TODO{otherwise nothing is done}
 
 Any calls using `call` instruction with known destination which is a function
 marked with `nounwind` attribute will not be modified. Functions marked with
@@ -84,6 +83,8 @@ entered by stack unwinding due to active exception, the control is transfered to
 a landing block and, if before this transformation the exception would not be
 intercepted by `landingpad` in this function, after the transformation 
 the same exception would be rethrown by `resume`.
+
+\TODO{pozorvonání z jiného vlákna -> přidává běhy, ale o žádné nepříjde}
 
 ## Adding Exception Handling Cleanup
 
@@ -124,7 +125,7 @@ In this example, `%y` is defined in `if.then` basic block, but it needs to be
 cleared just before the `return` instruction at the end of `if.end` basic block,
 and the definition of `%y` does not dominate the cleaning point. The cleanup
 cannot be, in general, safely inserted after last use \TODO{zdůvodnit --
-nerozhodnutelné}. For this reason we will first insert $\phi$-nodes in such a
+nerozhodnutelné}. For this reason we will first insert $\varphi$-nodes in such a
 way that any `alloca` is represented in any block which it can reach --- either
 by its value if the control did pass the `alloca` instruction, or by `null`
 constant if the control did not pass it. For our example the result of the
@@ -143,5 +144,170 @@ otherwise.
 
 \TODO{Those phi nodes can be added by simple algorithm which traverses BBs in
 DFS order…}
+
+# Weak Memory Models
+
+In modern CPUs, the write to memory location need not be immediately visible in
+other threads, for example due to caches or out-of-order execution. However most
+of the verification tools, including \divine, do not directly support
+verification with these relaxed memory models, instead they assume *sequential
+consistency*, that is immediate visibility of any write to memory.
+
+In \cite{SRB15}, adding weak memory model simulation using \llvm-to-\llvm
+transformation was proposed. In this section we will describe details of the
+implementation of this transformation, as well as its extension which allows
+verification of full range of properties supported by \divine, most notably
+memory safety, which was not possible in original version of the transformation.
+We also show that, while the extension for $\tau+$ reduction proposed in
+\cite{SRB15} is indeed correct for TSO, it is not correct for PSO, and we
+propose alternative method which can partially resolve this problem.
+
+## Total Store Order
+
+Since the memory models implemented in hardware differ with CPU vendors, or
+even particular models of CPUs, it would not be practical and feasible to verify
+programs with regard to particular implementation of real-world memory model. For this reason
+several theoretical memory models were proposed, namely *Total Store Order*
+(TSO) \cite{SPARC94}, *Partial Store Order* (PSO) \cite{SPARC94}. 
+\TODO{přepsat konec odstavce:} In those theoretical models, an
+update may be deferred for an infinite amount of time. Therefore, even a finite
+state program that is instrumented with a possibly infinite delay of an update
+may exhibit an infinite state space. It has been proven that for such an
+instrumented program, the problem of reachability of a particular system
+configuration is decidable, but the problem of repeated reachability of a
+given system configuration is not \cite{Atig:2010:VPW:1706299.1706303}.
+
+In Total Store Order memory model, any write can be delayed infinitely but the
+order in which writes done by one thread become visible in other threads must
+match the order of writes in the thread which executed them. This memory model
+can be simulated by store buffer --- any write is first done into a
+thread-private buffer so it is invisible for other threads, this buffer keeps
+writes in FIFO order. The buffer can later be nondeterministically flushed,
+that is oldest entry from the buffer can be written to memory. Furthermore, any
+reads have to first look into store buffer of their thread for newer value of
+memory location, only if there is none they can look into memory. See
+\autoref{fig:extend:wm:sb} for an example of store buffer working.
+
+The transformation presented in \cite{SRB15} implements under-approximation of
+TSO using bounded store buffer. In this case the buffer size is limited and if
+an entry is to be written into full store buffer, the oldest entry from the
+buffer is flushed into memory. With this limited store buffer the
+transformation can be reasonably implemented, and the resulting state space is
+finite if the state space of the original program was finite, therefore this
+transformation is suitable for explicit state model checking.
+
+## Implementation
+
+The transformation implementation consists of two passes over \llvm bitcode, the
+first one (written by Petr Ročkai) is used to split loads and stores larger than
+64 bits into smaller loads and stores. In the second phase (written by me),
+bitcode is instrumented with store buffers using functions which perform stores
+and loads into store buffer. These functions are implemented in C++ and are part
+of the bitcode libraries provided by \divine.
+
+More specifically we distinguish three kind of functions in our transformation:
+*TSO*, *SC*, and *bypass* --- TSO functions will be instrumented to use Total
+Store Order memory model, SC functions will be instrumented to use Sequential
+Consistency \TODO{co to znamená -> ono to neznamená, že by ta funkce viděla
+efekty okamžitě, ale že JEJÍ efekty jsou vidět okamžtě),
+and bypass functions will be left unchanged --- these are used to
+implement the store buffer simulation. These kinds can be assigned to functions
+either by the means of annotation attributes[^annot], or by specifying default
+function kind, which will be used for all functions without annotation (this can
+be either TSO, or SC).
+
+[^annot]: For example `__attribute__((annotate("lart.weakmem.tso")))` should be
+added to function header for TSO function.
+
+The transformation of SC functions is the following: there is a memory barrier
+at the beginning of the function and after any call to function which is not
+known to be SC. No load or store transformation is necessary. For TSO functions,
+any load and store must be instrumented. This is done by replacing `load` and
+`store` instructions with calls to `__lart_weakmem_load_tso` and
+`__lart_weakmem_store_tso` --- these functions perform actual load or store
+using store buffer. Furthermore memory can be manipulated by the means of atomic
+instructions, that is `atomicrmw` (atomic read-modify-write) and `cmpxchg`
+(compare-and-swap), these are implemented by first flushing store buffer, and
+then executing the instruction without any modification --- this ensures
+sequential consistency required by these instructions \TODO{ne-SC varianty}.
+Finally memory barriers done by `fence` instruction are replaced by flushing
+store buffer and \llvm memory manipulating intrinsics[^llvmmmi] are replaced by
+functions which implement their functionality using store buffers.
+
+[^llvmmmi]: These are `llvm.memcpy`, `llvm.memmove`, and `llvm.memset`.
+
+## Nondeterministic Flushing
+
+## Integration with $\tau+$ Reduction
+
+As described in \autoref{sec:divine:tau} one of important reduction techniques
+in \divine is $\tau+$ reduction which allows execution of multiple consecutive
+instructions in one atomic block if there is no more then one action observable
+by other threads in this block. For example, a `load` instruction is observable
+if and only if it loads from memory block to which some other thread holds
+a pointer.
+
+This in particular means that any load from or store into store buffer will be
+considered visible action because the store buffer has to be visible both from
+the thread executing the load or store and from the thread which flushes store
+buffer to memory.
+
+To partially mitigate this issue it was proposed in \cite{SRB15} to bypass store
+buffer when storing to addresses which are thread local from the point of
+\divine's $\tau+$ reduction. To do this `__divine_is_private` intrinsic function
+is used in `__lart_weakmem_store_tso`, and if the address to which store is
+performed is indeed private, the store is executed directly, bypassing store
+buffer.
+
+This reduction is indeed correct for TSO stores. It is easy to see that the
+reduction is correct if a memory location is always private, or always public
+for the entire run of the program --- the first case means it is never accessed
+from more then one thread and therefore no store buffer is needed, the second
+case means the store buffer will be always uses. If the memory location (say
+`x`) becomes public during the run of the program it is again correct (the
+publication can happen only by writing an address of memory location from which
+`x` can be reached following pointers into some already public location):
+
+*   if `x` is first written and then published then, were the store
+    buffers used, the value of `x` would need to be flushed from store buffer
+    before `x` could be reached from other thread (because the stores cannot be
+    reordered), and therefore the observable values are the same in with and
+    without the reduction;
+
+*   if `x` is first made private and then written, then the "making private"
+    must happen by changing some pointer in public location, an action which
+    will be delayed by the store buffer. However, this action must be flushed
+    before the store to `x` in which it is considered private --- otherwise `x`
+    would not be private, and therefore also before any other modifications to
+    `x` which precede making `x` private;
+
+*   the remaining possibilities (`x` written after publication, and `x` written
+    before making it private) are not changed by the reduction.
+
+Furthermore, considering that all store buffers are reachable from all threads,
+and therefore any memory location which has entry in store buffer is considered
+public, we can extend this reduction proposed in \cite{SRB15} to `load`
+instructions as well. That is we can bypass looking for value in store buffer if
+its memory location is considered private by \divine, because no memory location
+which is private can have entry in store buffer. This means that loads of
+private memory locations are no longer considered as visible actions by $\tau+$
+which leads to further state space reduction for programs with weak memory
+simulation.
+
+As a final optimization, any load from or store into local variable which never
+escapes scope of the function which allocated it need not be instrumented, that
+is the `load` or `store` instruction need not be replaced with appropriate weak
+memory simulating version. To detect these cases, we currently use
+\llvm's `PointerMayBeCaptured` function to check if the memory location of the
+local variable was ever written to some other memory location. A more precise
+approximation could use pointer analysis to detect which memory locations can
+only be accessed from one thread.
+
+The evaluation of the original method proposed in \cite{SRB15}, as well as the
+optimizations proposed here can be found in \autoref{sec:res:wm:tau}.
+
+## Invalidated Variable Store Problem
+
+\label{sec:extend:wm:invstore}
 
 # Atomic Functions and Instructions
