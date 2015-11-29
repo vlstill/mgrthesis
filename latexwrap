@@ -2,6 +2,13 @@
 
 [ -x $(which lualatex) ] || { echo "luaflatex not found!" >&2; exit 1; }
 
+if [[ ${1::2} = "-n" ]]; then
+    N=${1:2}
+    shift
+else
+    N=5
+fi
+
 # parse -I parameters and convert them to TEXINPUTS variable
 TEXINPUTS="."
 FILE=""
@@ -24,7 +31,7 @@ export TEXINPUTS
 
 # immitate rubber (actually better then rubber for beamer :-})
 echo -n "compiling $FILE"
-for i in {1..5}; do
+for i in $(seq 1 $N); do
     if lualatex $ARGS </dev/null >/dev/null 2>/dev/null; then
         echo -n '.'
         rerun=0

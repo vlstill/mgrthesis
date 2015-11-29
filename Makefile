@@ -3,11 +3,15 @@ ALL=$(wildcard *.md)
 all : thesis.pdf
 	make -C draft
 
-thesis.pdf : thesis.tex $(ALL:.md=.tex)
+thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl
 	./latexwrap $<
 
-thesis.bbl : bibliography.bib
-	biber thesis
+thesis.bbl : bibliography.bib thesis.bcf
+	-biber thesis
+
+thesis.bcf :
+	./latexwrap -n1 $<
+
 
 %.tex : %.md
 	pandoc $< -o $@
