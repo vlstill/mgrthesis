@@ -275,6 +275,7 @@ struct _DivineLP_Info *__divine_landingpad( int frameid );
 \label{sec:divine:tau}
 
 *   \cite{RBB13} $\tau+$
+*   tauloads: data dependent loads??
 
 ## \Tc
 
