@@ -1,4 +1,3 @@
-
 # New Interface for Atomic Sections
 
 The interface for declaring atomic sections in verified code (described in

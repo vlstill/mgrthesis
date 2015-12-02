@@ -49,6 +49,12 @@ library. In this way, \divine can often be directly applied to verification of
 real-world code provided it does not use inputs or platform specific features
 such as calls into the kernel of operating system.
 
+We will present two case studies of using \llvm transformations to aid model
+checking --- one is enriching input programs with weak memory models such that
+these can be verified using model checker which assumes sequential consistency.
+The other case study aims at decreasing size of the verification problem without
+changing the semantics of the input program.
+
 While the techniques presented here are aimed primarily for \divine, their
 nature as \llvm transformation allows their application for other model
 checkers, or even verifiers using different principles, provided they use \llvm
@@ -61,4 +67,4 @@ In \autoref{chap:llvm} we present \llvm intermediate representation, in
 transformations can be used to extend capabilities of model checker, in
 particular by adding weak memory support into \divine as \llvm transformation,
 \autoref{chap:reduce} explores usage of \llvm transformation for state space
-reductions, and finally chapter \autoref{chap:conc} concludes this work.
+reductions, and finally chapter \autoref{chap:conclusion} concludes this work.

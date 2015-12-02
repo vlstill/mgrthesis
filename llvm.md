@@ -1,13 +1,3 @@
-\llvm\cite{llvm:web} was originally introduced in \cite{Lattner02} as an
-infrastructure for optimization. Today \llvm is presented as compiler
-infrastructure, it provides programming language and platform independent tools
-for optimization and support for code generation for many platforms. It also
-defines intermediate representation --- \llvm IR --- a Single Static Assignment
-based low level language, and a library for manipulation with this intermediate
-representation.
-
-# \llvm{} Intermediate Representation
-
 \begin{quote}
 ``\llvm is a Static Single Assignment (SSA) based representation that provides
 type safety, low-level operations, flexibility, and the capability of
@@ -17,20 +7,110 @@ representation used throughout all phases of the \llvm compilation strategy.''
 \hfill --- \llvm Language Reference Manual \cite{llvm:langref}
 \end{quote}
 
+\llvm\cite{llvm:web} was originally introduced in \cite{Lattner02} as an
+infrastructure for optimization. Today \llvm is presented as compiler
+infrastructure, it provides programming language and platform independent tools
+for optimization and support for code generation for many platforms. It also
+defines intermediate representation --- \llvm IR --- a Single Static Assignment
+based low level language, and a library for manipulation with this intermediate
+representation. The name \llvm itself is often used both for the complete
+infrastructure as well as for \llvm IR.
+
 \llvm IR can be represented in three ways --- a human readable assembly (`.ll`
-file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects.
+file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects
+which can be manipulated by \llvm libraries and read from and serialized to both
+other forms.
 
-* Local Variable representation
 
-## Exception Handling
+# \llvm IR basics
 
-\label{sec:llvm:eh}
-
+*   Local Variable representation
+*   backend, frontend
+*   ssa, phi, basic block, terminator, load/store/atomic for memory
 *   stack unwinding without EH: exit,…
 *   landingpad block = bb beginning with `landingpad`
 *   \cite{RBB13}
 
-## Atomic Instructions
+
+# Exception Handling
+
+\label{sec:llvm:eh}
+
+Exception handling in \llvm \cite{llvm:except} is based on Itanium ABI zero-cost
+exception handling. This means that exception handling does not incur any
+overhead such as checkpoint creation when entering `try` blocks. Instead all the
+work is done at the time exception is thrown, that is exception handling is
+zero-cost until the exception is actually used.
+
+The concrete implementation of exception handling is platform dependent and as
+such cannot be completely described in \llvm --- it usually consists of
+*exception handling tables* compiled in the binary, an *unwinder* library
+provided by the operating system and a language-dependent way of throwing and
+catching exceptions. The exception handling tables and most of the unwinder
+interface is not exposed into \llvm IR as it is filled in by backend for
+particular platform. Nevertheless, there must be information in \llvm IR
+which allow generation of this backend-specific data. For this reason \llvm has
+three exception-handling-related instructions: `invoke`, `landingpad`, and
+`resume`.
+
+`invoke`
+
+~   instruction works similar to `call` instruction, it can be used to
+    call function in such a way that if it throws an exception this exception
+    will be handled by dedicated basic block. Unlike `call` `invoke` is a
+    terminator instruction --- it has to be last in basic block. Apart from
+    function to call and its parameters it also takes two basic block labels,
+    one to be used when the function return normally and one to be used on
+    exception propagation.
+
+`landingpad`
+
+~   is used at the beginning of exception handling block (it can be preceded
+    only by `phi` instruction). Its return value is platform and language
+    specific description of the exception which is propagating. For C++ this is
+    a tuple containing a pointer to the exception and a *selector* --- an
+    integral value corresponding to the type of the exception which is used in
+    the exception catching code. The basic block which contains `landingpad`
+    instruction will be referred to as *landing block*.[^lblp]
+
+    The `landingpad` instruction specifies which exception it can catch --- it
+    can be have multiple *clauses* and each clause is either `catch` clause,
+    meaing the `landingpad` should be used for exceptions of type this clause
+    specifies, or `filter` clause --- in this case `landingpad` should be
+    entered if this the type of exception does not match any of the types in the
+    clause. The type of the exception is determined dynamically, that is the
+    clauses contain run time type information objects. Furthermore, the
+    `landingpad` can be denoted as `cleanup`, meaning it shlould be entered even
+    if no matching clause is found.
+
+    As the matching clause is determined at the runtime the code in landing
+    block has to be able to determine which of the possible clauses (or
+    `cleanup` flag) fired. For this reason the return value of `landingpad`
+    instruction is determined using a *personality function* --- a
+    language-dependent function which is called when throwing the exception or
+    by stack unwinder. For C++ the personality function is
+    `__gxx_personality_v0` and it returns pointer to the exception and integral
+    selector which uniquely determines which catch block of the original C++
+    code should fire.
+
+`resume`
+
+~   is used to resume propagation of exception which was earlier intercepted by
+    `invoke`--`landingpad` combination, it takes same arguments as returned by
+    the `landingpad`.
+
+[^lblp]: In \llvm documentation this block is referred to as *landing pad*,
+however, we will use the naming introduced in \cite{RBB14} to avoid confusion
+between `landingpad` as an instruction and landing pad as a basic block which
+contains this instruction.
+
+It is important to note that \llvm does not have any instruction for throwing
+of exceptions, this is left to the frontend to be done in language-dependent
+way. In C++ throwing is done by call to `__cxa_throw` which will initiate the
+stack unwinding in cooperation with the unwinder library. Similarly, allocation
+and catching of the exception is left to be provided by the frontend.
+
+# Atomic Instructions
 
 \label{sec:llvm:atomic}
 
