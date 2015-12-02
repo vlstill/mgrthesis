@@ -424,4 +424,13 @@ optimizations proposed here can be found in \autoref{sec:res:wm:tau}.
 
 \label{sec:extend:wm:invstore}
 
+## Atomic Instructions in Weak Memory
+
+The original proposal presented on MEMICS 2015 \cite{SRB15} did not include
+support for atomic instructions with atomic ordering other than sequentially
+consistent (for description about atomic instructions and atomic orderings in
+\llvm see \autoref{sec:llvm:atomic}). In this section we present extension of
+the original proposal which allows simulation of weaker versions of atomic
+functions.
+
 # Atomic Functions and Instructions

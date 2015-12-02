@@ -32,6 +32,8 @@ file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects.
 
 ## Atomic Instructions
 
+\label{sec:llvm:atomic}
+
 \llvm has support for atomic instructions with well-defined behavior in
 multi-threaded programs \cite{llvm:atomics}. \llvm's atomic instructions are
 build so that they can provide functionality required by C++11 atomic operation
@@ -97,7 +99,7 @@ Release
 
 Acquire-Release
 
-~   corresponds to `memory_order_aqr_rel` in C++11, acts as both acquire and
+~   corresponds to `memory_order_acq_rel` in C++11, acts as both acquire and
     release on given memory location.
 
 Sequentially Consistent
