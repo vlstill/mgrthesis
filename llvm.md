@@ -24,12 +24,56 @@ other forms.
 
 # \llvm IR basics
 
-*   Local Variable representation
+\llvm IR human-readable representation is similar to assembly languages,
+however, it is typed and more verbose. In this section we will shortly describe
+relevant part of this human-readable \llvm representation as well as basic
+structure of \llvm IR. Through whole work we will use `typewriter-style font` to
+denote a fragment of code in some programming language, notably in \llvm IR. We
+will also use the same font for instruction name.
+
+\llvm IR has two basic kinds of identifiers: global identifiers, used for global
+variables and functions (their name begins with `@`), and local identifiers,
+such as register names and types (their name begins with `%`). The identifiers
+can be either named or unnamed, unnamed identifiers are represented using
+unsigned value.
+
+\llvm programs consist of modules --- a module represents compilation unit of
+the input program, or result of \llvm linker. Modules contain functions, global
+variables, symbol table entries, and metadata.
+
+A function contains, apart from its header (which defines name, number and type
+of parameters and function attributes), a body which consists of *basic blocks*.
+Basic block is a continuous sequence of instruction with no branching inside,
+terminated by so called *terminator* instruction --- an instruction which
+transfers control flow to another basic block (branching instruction) or exists
+the function (in the case of `ret` and `resume`). Values in a function are held
+in *registers* which are in SSA form (they are assigned only once --- at their
+declaration) and there is unlimited number of them.
+
+Most of \llvm's instructions operate on registers (or global values), memory
+manipulation is possible only using four instructions: `load`, `store`,
+`atomicrmw`, and `cmpxchg`. The meaning of `load` and `store` instructions is
+simple enough, the first one loads value of given type from memory location
+given by its pointer argument, the second one stores value to memory location
+given by its pointer argument. `atomicrmw` and `cmpxchg` are atomic
+instructions, they perform atomic read-modify-write and compare-and-swap, more
+about these instructions can be found in \autoref{sec:llvm:atomic}.
+
+Since \llvm registers are in SSA form and their address cannot be taken they are
+not suitable for representation of local variables. To represent these variables
+\llvm uses `alloca` instruction --- this instruction takes a size and returns
+pointer to memory location of given size which will be automatically freed on
+function exit. Usually `alloca` is implemented using stack when \llvm is
+compiled to runnable binary.
+
+Finally, again as a consequence of SSA form, \llvm IR includes $\varphi$-nodes
+represented by `phi` instruction --- these are special instructions which merge
+values from different basic blocks. `phi` instructions must be at the beginning
+of basic block.
+
+# \llvm Compilation Process
+
 *   backend, frontend
-*   ssa, phi, basic block, terminator, load/store/atomic for memory
-*   stack unwinding without EH: exit,…
-*   landingpad block = bb beginning with `landingpad`
-*   \cite{RBB13}
 
 
 # Exception Handling

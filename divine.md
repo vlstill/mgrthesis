@@ -59,6 +59,9 @@ completely replaced without the need to modify and recompile \divine itself and
 is closely tied to the language of verified program, while the interpreter is
 mostly language agnostic.
 
+*   stack unwinding without EH: exit,…
+*   \cite{RBB13}
+
 ## Interpreter
 
 \TODO{...}
