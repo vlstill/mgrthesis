@@ -95,7 +95,7 @@ be marked atomic by adding `__lart_atomic_function` to their header, see
 
 #@FIG:tp
 ```{.cpp}
-#include <lart/atomic>
+#include <lart/atomic.h>
 
 int atomicInc( int *ptr, int val ) __lart_atomic_function {
     int prev = *ptr;

@@ -1,7 +1,10 @@
-In this chapter we describe internal architecture of \divine, as of version 3.3,
+In this chapter we describe internal architecture of \divine [^dvers]
 with main focus on implementation of \llvm verification. More details about
 \divine can be found for example in Ph.D. thesis of Petr Ročkai
 \cite{RockaiPhD}, or in tool paper introducing \divine 3.0 \cite{DiVinE30}.
+
+[^dvers]: More precisely version 3.3 which is the latest released version at the
+time of writing of this thesis.
 
 For the purposes of this thesis, most of internal architecture of \divine is
 irrelevant --- we will focus mostly on \llvm interpreter, which is the only part
@@ -30,7 +33,7 @@ to retrieve algorithm data associated with this state. In \divine two modes of
 operation are present --- hash table, and hash table with lossless \tc
 \cite{RSB15}.
 
-Finally exploration algorithm connects all these parts together in order to
+Finally the exploration algorithm connects all these parts together in order to
 verify given property. The algorithm used depends on verified property, for
 safety properties, either standard \bfs based reachability, or
 context-switch-directed reachability \cite{SRB14} can be used. For general \ltl
@@ -44,7 +47,7 @@ referred to as \llvm interpreter, and bitcode libraries. The interpreter is
 responsible for instruction execution, memory allocation and thread handling, as
 well as parts of exception handling --- its role is similar to the role of
 operating system and hardware. On the other hand, the bitcode libraries provide
-higher level functionality for users program --- they implement language support
+higher level functionality for user programs --- they implement language support
 by the means of standard libraries for C and C++, higher-level threading by the
 means of `pthread` library, and to some extend a UNIX-compatible environment,
 with simulation of basic filesystem functionality. The libraries use intrinsic
@@ -55,20 +58,73 @@ As a terminology, we will denote all the parts implemented in \llvm bitcode,
 that is the bitcode libraries together with user-provided code as the
 *userspace*, to distinguish it from the interpreter, which is compiled into
 \divine. Unlike the interpreter, the userspace can be easily changed, or even
-completely replaced without the need to modify and recompile \divine itself and
+completely replaced without the need to modify and recompile \divine itself, and
 is closely tied to the language of verified program, while the interpreter is
 mostly language agnostic.
 
-*   stack unwinding without EH: exit,…
-*   \cite{RBB13}
-
 ## Interpreter
 
-\TODO{...}
+The \llvm interpreter is responsible for execution of \llvm instructions and
+intrinsic functions (a built-in operations which are represented in \llvm as
+call to certain function with `__divine` prefix and in the interpreter are
+executed similarly to instructions). It also performs state space reduction
+(described in \autoref{sec:divine:reduction}), recognizes which states are
+violating the property.
 
-### Problem Categories
+### Problem Categories \label{divine:divine:problems}
 
-\label{divine:llvm:problems}
+\divine has several safety properties which can be verified in \llvm models,
+these properties are specified in term of problem categories --- a group of
+related problems. Problem categories can be reported either directly by \llvm
+interpreter, or by userspace using `__divine_problem` intrinsic (see the next
+section for signature of this function). When a problem is reported it is
+indicated in the state, together with the position in the program at which it
+was detected. Safety properties such as memory safety are defined in terms of
+problem categories which should be reported as property violation.
+
+Assert
+~   corresponds to call of `assert` function with arguments which evaluated to
+    false.
+
+Invalid dereference
+~   is reported by the interpreter if load is performed from invalid address.
+
+Invalid argument
+~   is reported by the interpreter when a function is called with unexpected
+    arguments, for example non-variadic function called with more (or less)
+    arguments that it expected, or intrinsic called with wrong argument values.
+
+Out of bounds
+~   is reported by the interpreter when access out of the bounds of a memory
+    object is attemted.
+
+Division by zero
+~   is reported when integral division by zero is attempted.
+
+Unreachable executed
+~   is reported if `unreachable` instruction is executed. This instruction
+    usually occurs at the end of non-void function which lacks return statement.
+
+Memory leak
+~   is reported when last pointer to given heap memory object is destoyed
+    before the object is freed.
+
+Not implemented
+~   is intended to be reported by userspace in function stubs --- a function
+    which is provided only so that bitcode does not contain undefined functions,
+    but is not implemented, for example because it is not expected to be used.
+
+Uninitialized
+~   is reported by the interpreter if the control flow depends on an
+    uninitialized value.
+
+Deadlock
+~   is reported by userspace deadlock detection mechanisms, for example when
+    circular waiting in `pthread` mutexes is detected.
+
+Other
+~   --- this problem category is used by userspace to report other types of
+    problems.
 
 
 ### Intrinsic Functions
@@ -81,18 +137,19 @@ transformations. Since these functions are \divine-specific, the transformations
 using them would need to be modified, or equivalent functions would have to be
 provided should the transformation be used for other tools.
 
-
 ```{.cpp}
 int __divine_new_thread( void (*entry)(void *), void *arg );
 int __divine_get_tid();
 ```
 
 The `__divine_new_thread` intrinsic instructs the interpreter to create new
-thread, this thread will use `entry` as its entry procedure, which has to accept
-singe `void *` argument, the interpreter will pass `arg` to the entry procedure
+thread, this thread will use `entry` as its entry procedure, `entry` has to accept
+singe `void*` argument, the interpreter will pass `arg` to the entry procedure
 of new thread. The function returns thread ID used for identification of the new
-thread in \divine's interpreter. The `__divine_get_tid` returns \divine thread ID.
+thread in \divine's interpreter. The `__divine_get_tid` returns \divine thread
+ID of the thread which executed it.
 
+\bigskip
 When implementing threading primitives, such as those in `pthread` library, in
 userspace it required that these are themselves data race free. To facilitate
 this, \divine provides way to make atomic section of instructions, and
@@ -102,7 +159,7 @@ the entire block of instructions, which might include any number of
 instructions or even function calls. It is, however, responsibility of the
 library writer to use these atomic sections correctly, namely each of these
 sections must always terminate, that is, there must be no (possibly) infinite
-cycles, such as busy-waiting for variable to be set.
+cycles, such as busy-waiting for variable to be set by other thread.
 
 ```{.cpp}
 void __divine_interrupt_mask();
@@ -124,8 +181,8 @@ is then part of atomic section if it is executed inside masked frame. If the
 executed function is function call, the frame of the callee inherits the mask
 flag of the caller. However, when `__divine_interrupt_unmask` is called it
 resets mask flag of its caller, leaving mask flags of functions lower in stack
-frame unmodified --- that is the current atomic section ends, but if the caller
-of `__divine_interrupt_unmask` was not the caller of `__divine_interrupt_mask`,
+unmodified --- the current atomic section ends, but if the caller of
+`__divine_interrupt_unmask` was not the caller of `__divine_interrupt_mask`,
 then a new atomic section will be entered after the caller of
 `__divine_interrupt_unmask` exits.
 
@@ -133,33 +190,34 @@ then a new atomic section will be entered after the caller of
 void __divine_assert( int value );
 void __divine_problem( int type, const char *data );
 ```
-These functions are used for error reporting from the userspace.
+These functions allow problem reporting from the userspace.
 `__divine_assert` behaves much like the standard C macro `assert`, if it is
-called with nonzero value current state is marked as goal and the problem (see
-\autoref{divine:llvm:problems}) is set so that it indicated assertion violation
-on the line which called `__divine_assert`. `__divine_problem` unconditionally
-reports problem of given category to the interpreter, the report can be
-accompanied by error message passed in `data` value.
+called with nonzero value the assertion violated problem is added to the
+current state's problems (see \autoref{divine:divine:problems}).
+`__divine_problem` unconditionally reports problem of given category to the
+interpreter, the report can be accompanied by error message passed in `data`
+value.
 
 ```{.cpp}
 void __divine_ap( int id );
 ```
 
-`__divine_ap` indicate that atomic proposition represented by `id` holds in
-current state, this is always an observable actions. For more details on \ltl in
-\divine see \autoref{sec:divine:llvm:ltl}.
+`__divine_ap` indicates that atomic proposition represented by `id` holds in
+current state, this is always an observable actions, unless it is executed as
+part of an atomic section. For more details on \ltl in \divine see
+\autoref{sec:divine:ltl}.
 
 ```{.cpp}
 int __divine_choice( int n, ... );
 ```
 
 `__divine_choice` is nondeterministic choice, when it is encountered, the
-state of the program splits into `n` copies; ecach copy of the state
+state of the program splits into `n` copies; each copy of the state
 will see a different return value from `__divine_choice` starting from $0$ up to
 $n - 1$. When more than one parameter is given, the choice becomes probabilistic
-and the remainting parameters (there must be exactly `n` additional parameters)
+and the remaining parameters (there must be exactly `n` additional parameters)
 give probability distribution of the choices. This can be used for probabilistic
-C++ verification \cite{TODO:MUSEPAT}.
+C++ verification, see \cite{TODO:MUSEPAT} for more details.
 
 ```{.cpp}
 void *__divine_malloc( unsigned long size );
@@ -169,10 +227,10 @@ int __divine_is_private( void *ptr );
 ```
 
 These are low level heap access functions, `__divine_malloc` allocates new block
-of memory of given size, without any alignment. This function does not fail.
-`__divine_free` frees a block of memory previously allocated with
-`__divine_malloc`. If the block was already freed, problem is reported. If null
-pointer is passed to `__divine_free`, nothing is done.
+of memory of given size. This function does not fail.  `__divine_free` frees a
+block of memory previously allocated with `__divine_malloc`. If the block was
+already freed, problem is reported. If null pointer is passed to
+`__divine_free`, nothing is done.
 
 `__divine_heap_object_size` returns allocation size of given object, and
 `__divine_is_private` return nonzero if the pointer passed to it is private to
@@ -190,10 +248,43 @@ for heap canonization (see \autoref{sec:divine:llvm:heap} for more details).
 ```{.cpp}
 void *__divine_va_start();
 ```
-Variable argument handling. Calling `__divine_va_start` gives a pointer to
-a monolithic block of memory that contains all the variadic arguments, successively
-assigned higher addresses going from left to right. All the rest of variadic
-argument support is implemented in the userspace.
+This function allows handling of functions with variable number of arguments.
+Calling `__divine_va_start` gives a pointer to a block of memory that
+contains all the variadic arguments, successively assigned higher addresses
+going from left to right.
+
+```{.cpp}
+void __divine_unwind( int frameid, ... );
+struct _DivineLP_Info *__divine_landingpad( int frameid );
+```
+These functions relate to exception handling. `__divine_unwind`
+unwinds all frames between current frame and frame denoted by `frameid`.
+`__divine_landingpad` gives information about `landingpad` instruction
+associated with active call in given frame. For more information about exception
+handling in \divine see the next section.
+
+## Exception Handling \label{sec:divine:llvm:eh}
+
+In order to allow verification of unmodified programs in any programing
+language, it is desirable that all the language features can be handled by the
+verifier. When \llvm is used as intermediate representation by the verifier most
+of the language features are supported automatically by the use of existing
+compiler, however there might still be some features that require support from
+the verifier. In C++ exceptions are such a feature and they are often omitted by
+verifiers.
+
+In \divine C++ exceptions are supported and the mechanisms used should allow
+implementation of exceptions in other programming languages purely in userspace,
+provided that they use \llvm exception handling described in
+\autoref{sec:llvm:eh} and they use similar mechanisms as C++ to determine which
+`landingpad` matches the exception. The full description of the \divine's
+exceptions can be found in \cite{RBB14}.
+
+From the point of a C++ program \divine acts as an unwinder library --- it
+allows transfer of control from currently executing function into landing block
+corresponding of an active `invoke` instruction in some stack frame. The
+interface for this functionality is quite simple and it consists of the
+following functions and data types.
 
 ```{.cpp}
 void __divine_unwind( int frameid, ... );
@@ -213,65 +304,53 @@ struct _DivineLP_Info {
 struct _DivineLP_Info *__divine_landingpad( int frameid );
 ```
 
-These functions and types relate to exception handling. `__divine_unwind`
-unwinds all frames between current frame and frame denoted by `frameid`. No
-landing pads are triggered in intermediate frames, if there is a landing pads
-for active call in the frame in which unwinding ends and any arguments other
-then `frameid` were passed to `__divine_unwind`, this landing pad returns
-arguments passed to `__divine_unwind`. The `frameid` is $0$ for caller of
-`__divine_unwind`, $-1$ for its caller and so on.
+`__divine_unwind` unwinds all frames between current frame and frame denoted by
+`frameid`. No landing pads are triggered in intermediate frames, if there is a
+landing pads for active call in the frame in which unwinding ends and any
+arguments other then `frameid` were passed to `__divine_unwind`, this landing
+pad returns arguments passed to `__divine_unwind` (if the active call
+instruction in destination frame is `call` and not `invoke` the extra arguments
+are returned as result of the function). The `frameid` is $0$ for
+caller of `__divine_unwind`, $-1$ for its caller and so on.
 
-`__divine_landingpad` gives information about landing pad of active call in
-frame denoted by `frameid`. It returns \TODO{TODO}.
+`__divine_landingpad` gives information about `landingpad` associated with the
+active `invoke` in frame denoted by `frameid`, if there is some. It returns
+pointer to `_DivineLP_Info` object which corresponds to the landing pad, or
+`NULL` if there is `call` instead of `invoked` in given frame. The returned
+structure encodes information about the `landingpad` it corresponds to and the
+personality function used by its enclosing function --- there is flag which
+indicates whether the landing block is cleanup block (it should be entered even
+if the exception does not match any of the clauses), and an array of
+`_DivineLP_Clause` structures which encodes the clauses of the `landingpad`. For
+each of these clauses there is an identifier which should be returned as a
+selector from the `landingpad` if this clause is matched and a pointer to `tag`
+which is a type information object in C++.
 
+Using these functions a function which throws an exception can be be implemented
+quite easily --- it simply goes through the stack asking for `_DivineLP_Info` in
+each frame beginning with its caller, and for each of them check if the
+exception type matches any of the clauses in the `landingpad`. When a matching
+clause is found, the corresponding type id is set into the exception object
+which is then passed into `personality` function. The personality function
+return a value which should be returned from `landingpad` instruction, so this
+value is passed, together with the frame id of the corresponding frame, into
+`__divine_unwind` to perform the unwinding.
 
-\iffalse
-```
-/*
- * Exception handling and stack unwinding.
- *
- * To unwind some frames (in the current execution stack, i.e. the current
- * thread), call __divine_unwind. The argument "frameid" gives the id of the
- * frame to unwind to (see also __divine_landingpad). If more than 1 frame is
- * unwound, the intervening frames will NOT run their landing pads.
- *
- * If a landing pad exists for the active call in the frame that we unwind
- * into, the landing pad personality routine gets exactly the arguments passed
- * as varargs to __divine_unwind.
- */
-void __divine_unwind( int frameid, ... );
+The `resume` instruction implementation is in the interpreter and it is quite
+simple --- it finds nearest `invoke` in the call stack and transfers control to
+its `landingpad` which will return the value passed to the `resume`. 
 
-struct _DivineLP_Clause {
-    int32_t type_id; // -1 for a filter
-    void *tag; /* either a pointer to an array constant for a filter, or a
-                  typeinfo pointer for catch */
-} __attribute__((packed));
+Apart from the aforementioned exception handling the `__divine_unwind` us also
+usable for implementing functions such as `pthread_exit` --- in this case stack
+is fully unwound, which causes thread to terminate. Furthermore, \cite{RBB14}
+presents a minor extension of the exception handling mechanism which would allow
+implementation of `setjmp`/`longjmp` POSIX functions.
 
-struct _DivineLP_Info {
-    int32_t cleanup; /* whether the cleanup flag is present on the landingpad */
-    int32_t clause_count;
-    void *personality;
-    struct _DivineLP_Clause clause[];
-} __attribute__((packed));
-
-/*
- * The LPInfo data will be garbage-collected when it is no longer
- * referenced. The info returned reflects the landingpad LLVM instruction: each
- * LPClause is either a "catch" or a "filter". The frameid is either an
- * absolute frame number counted from 1 upwards through the call stack, or a
- * relative frame number counted from 0 downwards (0 being the caller of
- * __divine_landingpad, -1 its caller, etc.). Returns NULL if the active call
- * in the given frame has no landing pad.
- */
-struct _DivineLP_Info *__divine_landingpad( int frameid );
-```
-\fi
+## LTL \label{sec:llvm:ltl}
 
 ## Userspace
 
-
-
-# Reduction Techniques
+# Reduction Techniques \label{sec:divine:reduction}
 
 ## $\tau+$ and Heap Reductions
 
@@ -279,6 +358,8 @@ struct _DivineLP_Info *__divine_landingpad( int frameid );
 
 *   \cite{RBB13} $\tau+$
 *   tauloads: data dependent loads??
+
+*   \cite{RBB13}
 
 ## \Tc
 

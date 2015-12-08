@@ -49,6 +49,12 @@ library. In this way, \divine can often be directly applied to verification of
 real-world code provided it does not use inputs or platform specific features
 such as calls into the kernel of operating system.
 
+\divine uses the standard automata based approach to explicit state model
+checking \cite{Clarke2000MC}, that is it builds state space graph and explores
+it --- either it looks for states violating given safety property (such as
+assertion violation or memory usage error), or for accepting cycles in product
+with \buchi automaton for liveness properties.
+
 We will present two case studies of using \llvm transformations to aid model
 checking --- one is enriching input programs with weak memory models such that
 these can be verified using model checker which assumes sequential consistency.

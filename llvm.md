@@ -73,7 +73,23 @@ of basic block.
 
 # \llvm Compilation Process
 
-*   backend, frontend
+\llvm itself is not a complete compiler --- it lacks support for translation
+from higher-level programming language into \llvm IR. This translation is a role
+for *frontend* such as Clang, which is C/C++/Objective-C compiler released
+together with \llvm, or DragonEgg which integrates \llvm with GCC parsers and
+allows processing of Ada, Fortran, and other.
+
+After the frontend generates \llvm IR, \llvm can be used to run optimizations on
+this IR. These optimizations are organized into *passes*, each of the passes
+performs single optimization or code analysis task, such as constant
+propagation, or inlining. \llvm passes are usually run directly by the compiler
+but they can be also executed directly on \llvm IR using `opt` binary which
+comes with \llvm. Optimization passes are written in C++ using \llvm libraries.
+
+Finally, the optimized IR has to be translated into platform specific assembler.
+This done by code generator, which is part of \llvm. \llvm comes with code
+generator for many platforms, including X86, X86_64, ARM, and PowerPC. \llvm
+also comes with infrastructure for writing code generators for other platforms.
 
 
 # Exception Handling
@@ -284,10 +300,4 @@ written by the \texttt{store}) as the \texttt{store} is not release or stronger.
 
 Unlike aforementioned atomic instructions the `fence` instruction is not bound
 to a specific memory location. \TODO{semantika fence}
-
-# \llvm{} Library
-
-Apart from the intermediate representation \llvm also provides a C++ library
-which provides wide range of tools for optimization and manipulation of \llvm
-IR.
 
