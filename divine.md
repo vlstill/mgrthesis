@@ -346,27 +346,113 @@ is fully unwound, which causes thread to terminate. Furthermore, \cite{RBB14}
 presents a minor extension of the exception handling mechanism which would allow
 implementation of `setjmp`/`longjmp` POSIX functions.
 
-## LTL \label{sec:llvm:ltl}
+## \ltl \label{sec:divine:ltl}
+
+\ltl support in \divine is implemented using explicit set of atomic propositions
+defined as `enum APs` in the verified program. These atomic atomic propositions
+are activated explicitly using `AP` macro (which uses `__divine_ap` internally),
+and they are active in the state where `AP` is called. As a result of this
+explicit activation of atomic propositions, it is not possible that more that one
+atomic proposition is active in any state, which limits user friendliness, but
+not expressive power. See \autoref{fig:divine:ltl} for an example of \ltl in
+\divine.
+
+#@FIG:tp
+```{.cpp}
+#include <divine.h>
+
+LTL(exclusion,
+    G((c1in -> (!c2in W c1out)) && (c2in -> (!c1in W c2out))));
+
+enum APs { c1in, c1out, c2in, c2out };
+
+void critical1() {
+    AP( c1in );
+    AP( c1out );
+}
+
+void critical2() {
+    AP( c2in );
+    AP( c2out );
+}
+```
+\caption{A fragment of C program which uses \ltl property \texttt{exclusion} to
+verify that functions \texttt{critical1} and \texttt{critical2} cannot be
+executed in parallel.}
+
+\label{fig:divine:ltl}
+#@eFIG
 
 ## Userspace
 
-# Reduction Techniques \label{sec:divine:reduction}
+\divine has userspace support for C and C++ standard library, using PDCLib and
+libc++. This support is mostly complete, most notable missing parts are locale
+support (which is missing in PDCLib) and limited support for filesystem
+primitives (there is support for creation of directory snapshot which can be
+accessed and processed using standard C, C++, or POSIX functions).
 
-## $\tau+$ and Heap Reductions
+Apart from standard libraries \divine provides `pthread` threading library
+which allows thread support for C and older versions of C++ which do not include
+thread support in the standard library. Furthermore there is rudimentary support
+for POSIX compatible filesystem functions, including certain types of UNIX
+domain sockets, however, this library is still under development at the time of
+writing of this thesis.
 
-\label{sec:divine:tau}
+## Reduction Techniques \label{sec:divine:reduction}
 
-*   \cite{RBB13} $\tau+$
-*   tauloads: data dependent loads??
+In order to make verification of real-world \llvm programs tractable it is
+necessary to employ state space reductions. \divine uses $\tau+$ reduction to
+eliminate unnecessary states which are indistinguishable by any safety or
+stuttering-free \ltl property and heap symmetry reduction for \llvm
+\cite{RBB13}.  Furthermore, \divine uses lossless modelling language agnostic
+tree compression of entire state space \cite{RSB15}.
 
-*   \cite{RBB13}
+### $\tau+$ Reduction \label{sec:divine:tau}
 
-## \Tc
+In \llvm many instructions have no effect which would be observable by threads
+other then the one executing the instruction. This is true for all instructions
+which do not manipulate memory (they might still use registers, but registers
+are always private to the function in which they are declared), or might
+manipulate memory which is thread private.
 
-*   \cite{RSB15} tree
+\divine uses this observation to reduce state space --- it is possible to
+execute more than one instruction on a single edge in state space provided that
+only one of them has effect visible by other threads (is *observable*). To do
+this, interpreter tracks if it executed any observable instruction, and emits
+state just before second observable instruction is executed (this of course is
+suppressed in atomic sections, here only tracking takes place, but state can be
+emitted only at the end of atomic section). To decide which instructions are
+observable \divine uses following heuristics:
 
-## \ltl
+*   any instruction which does not manipulate memory is not observable (that is
+    all instructions apart from `load`, `store`, `atomicrmw`, `cmpxchg` and
+    built-in function `__divine_memcpy`[^memcpy]);
+*   for the memory manipulating instructions, it is checked whether the
+    concerned memory location can be visible by other threads, if it can the
+    instruction is observable.
 
-\label{sec:divine:llvm:ltl}
+[^memcpy]: In fact \divine 3.3 does not consider `__divine_memcpy` observable,
+this is a bug which I discovered and fixed during writing of this thesis.
+
+However, in order to ensure that successor generation terminates, it is
+necessary to avoid execution of infinite loops (or recursion) on one edge in
+state space --- this could happen for example for infinite cycle of unobservable
+instructions. For this reason \divine also tracks which program counter values
+were encountered while generating successors of given state and if any of them
+is to be encountered for the second time a state is emitted before the second
+execution of given instruction.
 
 # \lart
+
+\lart is a tool for \llvm transformation and optimization developed together
+with \divine, it was first introduced in Ph.D. thesis of Petr Ročkai
+\cite{RockaiPhD} as a platform for implementation of static abstraction and
+refinement of \llvm programs. It is intended to integrate \llvm transformations
+and analyses in such a way that it would be easy to implement new and reuse
+existing analyses.
+
+Before the time of writing of this thesis \lart was never released and it
+contained few mostly incomplete analyses and an proof-of-concept version of
+\llvm transformation which adds weak memory model verification support to
+existing \llvm program (this part was presented in \cite{SRB15}). Most of the
+work presented in this thesis is implemented in \lart.
