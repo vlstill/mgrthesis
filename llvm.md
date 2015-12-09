@@ -299,5 +299,68 @@ written by the \texttt{store}) as the \texttt{store} is not release or stronger.
 \end{figure}
 
 Unlike aforementioned atomic instructions the `fence` instruction is not bound
-to a specific memory location. \TODO{semantika fence}
+to a specific memory location. Instead it establishes memory synchronization
+between non-atomic and monotonic atomic accesses. The synchronization is
+established if there exists a pair of fence instructions *R* and *A* where *R*
+is `release` fence and *A* is `acquire` fence, and an atomic object *M* which is
+modified by instruction *S* (with at least `monotonic` ordering) after *R* and
+read by instruction *L* (with at least `monotonic` ordering) before *A*. In this
+case there is happens-before edge from *R* to *A*. Now if the read *L* of *M*
+observes the value written by write *S* this implies that all (atomic or not)
+writes which happen-before the fence *R* also happen-before the fence *A*. An
+illustration how this can be used to implement spin-lock can be found in
+\autoref{fig:llvm:fence}.
+
+\begFigure[tp]
+
+```{.cpp .numberLines}
+int a;
+std::atomic< bool > flag;
+
+void foo() {
+    a = 42;
+    std::atomic_thread_fence( std::memory_order_release );
+    flag.store( true, std::memory_order_relaxed );
+}
+
+void bar() {
+    while ( !flag.load( std::memory_order_relaxed ) ) { }
+    std::atomic_thread_fence( std::memory_order_acquire );
+    std::cout << a << std::endl; // this will print 42
+}
+```
+
+```{.llvm .numberLines}
+define void @_Z3foov() {
+entry:
+  store i32 42, i32* @a, align 4
+  fence release
+  store atomic i8 1, i8* @flag monotonic, align 1
+  ret void
+}
+
+define void @_Z3barv() {
+entry:
+  br label %while.cond
+
+while.cond:
+  %0 = load atomic i8, i8* @flag monotonic, align 1
+  %tobool.i.i = icmp eq i8 %0, 0
+  br i1 %tobool.i.i, label %while.cond, label %while.end
+
+while.end:
+  fence acquire
+  %1 = load i32, i32* @a, align 4
+  ; ...
+```
+
+\begCaption
+An example of use of `fence` instruction. The `release` fence (line 6 in C++, 4
+in \llvm) synchronizes with the `acquire` fence (line 12 in C++, 19 in \llvm)
+because there exists an atomic object `flag` and an operation which modifies it
+with `monotonic` ordering (lines 7, 5) after the `release` fence, and reads it,
+again with `monotonic` ordering (lines 11, 14), before the `acquire` fence.
+\endCaption
+\label{fig:llvm:fence}
+\endFigure
 

@@ -17,7 +17,9 @@ thesis.bcf :
 	pandoc $< -o $@
 	sed -i $@ -re 's/ \\cite/~\\cite/' \
 		-e 's/^\\section\{@FIG:([^\}]*)\}.*$$/\\begin{figure}[\1]/' \
-		-e 's/^\\section\{@eFIG\}.*$$/\\end{figure}/'
+		-e 's/^\\section\{@eFIG\}.*$$/\\end{figure}/' \
+		-e 's/\\begCaption/\\caption{/' -e 's/\\endCaption/\}/' \
+		-e 's/\\begFigure/\\begin{figure}/' -e 's/\\endFigure/\\end{figure}/'
 	@# sed -i $@ -re 's/\\label\{[^}]*-[^}]*\}//'
 
 
