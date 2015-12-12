@@ -148,7 +148,7 @@ three exception-handling-related instructions: `invoke`, `landingpad`, and
     `cleanup` flag) fired. For this reason the return value of `landingpad`
     instruction is determined using a *personality function* --- a
     language-dependent function which is called when throwing the exception or
-    by stack unwinder. For C++ the personality function is
+    by stack unwinder. For C++ and Clang the personality function is
     `__gxx_personality_v0` and it returns pointer to the exception and integral
     selector which uniquely determines which catch block of the original C++
     code should fire.
@@ -298,6 +298,7 @@ written by the \texttt{store}) as the \texttt{store} is not release or stronger.
 \label{fig:llvm:at:happensbefore}
 \end{figure}
 
+\bigskip
 Unlike aforementioned atomic instructions the `fence` instruction is not bound
 to a specific memory location. Instead it establishes memory synchronization
 between non-atomic and monotonic atomic accesses. The synchronization is
@@ -310,6 +311,10 @@ observes the value written by write *S* this implies that all (atomic or not)
 writes which happen-before the fence *R* also happen-before the fence *A*. An
 illustration how this can be used to implement spin-lock can be found in
 \autoref{fig:llvm:fence}.
+
+If the fence has `seq_cst` ordering it also participates in global program order
+of all sequentially consistent operations. A fence is not allowed to have
+`monotonic`, `unordered`, or no atomic ordering.
 
 \begFigure[tp]
 
@@ -364,3 +369,8 @@ again with `monotonic` ordering (lines 11, 14), before the `acquire` fence.
 \label{fig:llvm:fence}
 \endFigure
 
+\bigskip
+Finally, all atomic instructions can optionally have `singlethreaded` flag
+which means they do not synchronize with other threads, and only synchronize
+with other atomic instructions within the thread. This is useful for
+synchronization with signal handlers.

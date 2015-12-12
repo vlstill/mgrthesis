@@ -432,4 +432,3 @@ consistent (for description about atomic instructions and atomic orderings in
 the original proposal which allows simulation of weaker versions of atomic
 functions.
 
-# Atomic Functions and Instructions
