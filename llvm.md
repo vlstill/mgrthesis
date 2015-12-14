@@ -11,25 +11,25 @@ representation used throughout all phases of the \llvm compilation strategy.''
 infrastructure for optimization. Today \llvm is presented as compiler
 infrastructure, it provides programming language and platform independent tools
 for optimization and support for code generation for many platforms. It also
-defines intermediate representation --- \llvm IR --- a Single Static Assignment
-based low level language, and a library for manipulation with this intermediate
-representation. The name \llvm itself is often used both for the complete
-infrastructure as well as for \llvm IR.
+defines intermediate representation --- \llvm IR --- a
+single-static-assignment-based low-level language, and a library for
+manipulation with this intermediate representation. The name \llvm itself is
+often used both for the complete infrastructure as well as for \llvm IR.
 
 \llvm IR can be represented in three ways --- a human readable assembly (`.ll`
 file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects
-which can be manipulated by \llvm libraries and read from and serialized to both
+which can be manipulated by \llvm libraries and read-from and serialized-to both
 other forms.
 
 
 # \llvm IR basics
 
 \llvm IR human-readable representation is similar to assembly languages,
-however, it is typed and more verbose. In this section we will shortly describe
+but it is typed and more verbose. In this section we will shortly describe
 relevant part of this human-readable \llvm representation as well as basic
 structure of \llvm IR. Through whole work we will use `typewriter-style font` to
-denote a fragment of code in some programming language, notably in \llvm IR. We
-will also use the same font for instruction name.
+denote a fragment of code in some programming language, notably in \llvm IR or
+C++. We will also use the same font for instruction and function names.
 
 \llvm IR has two basic kinds of identifiers: global identifiers, used for global
 variables and functions (their name begins with `@`), and local identifiers,
@@ -37,7 +37,7 @@ such as register names and types (their name begins with `%`). The identifiers
 can be either named or unnamed, unnamed identifiers are represented using
 unsigned value.
 
-\llvm programs consist of modules --- a module represents compilation unit of
+\llvm programs consist of *modules* --- a module represents compilation unit of
 the input program, or result of \llvm linker. Modules contain functions, global
 variables, symbol table entries, and metadata.
 
@@ -47,17 +47,17 @@ Basic block is a continuous sequence of instruction with no branching inside,
 terminated by so called *terminator* instruction --- an instruction which
 transfers control flow to another basic block (branching instruction) or exists
 the function (in the case of `ret` and `resume`). Values in a function are held
-in *registers* which are in SSA form (they are assigned only once --- at their
+in *registers* which are in SSA form (they are assigned only once, at their
 declaration) and there is unlimited number of them.
 
-Most of \llvm's instructions operate on registers (or global values), memory
-manipulation is possible only using four instructions: `load`, `store`,
-`atomicrmw`, and `cmpxchg`. The meaning of `load` and `store` instructions is
-simple enough, the first one loads value of given type from memory location
-given by its pointer argument, the second one stores value to memory location
-given by its pointer argument. `atomicrmw` and `cmpxchg` are atomic
-instructions, they perform atomic read-modify-write and compare-and-swap, more
-about these instructions can be found in \autoref{sec:llvm:atomic}.
+Most \llvm instructions operate on registers, memory manipulation is possible
+only using four instructions: `load`, `store`, `atomicrmw`, and `cmpxchg`. The
+meaning of `load` and `store` instructions is simple enough, the first one
+loads value of given type from memory location given by its pointer argument,
+the second one stores value to memory location given by its pointer argument.
+`atomicrmw` and `cmpxchg` are atomic instructions, they perform atomic
+read-modify-write and compare-and-swap, more about these instructions can be
+found in \autoref{sec:llvm:atomic}.
 
 Since \llvm registers are in SSA form and their address cannot be taken they are
 not suitable for representation of local variables. To represent these variables
@@ -83,18 +83,17 @@ After the frontend generates \llvm IR, \llvm can be used to run optimizations on
 this IR. These optimizations are organized into *passes*, each of the passes
 performs single optimization or code analysis task, such as constant
 propagation, or inlining. \llvm passes are usually run directly by the compiler
-but they can be also executed directly on \llvm IR using `opt` binary which
+but they can be also executed on serialized \llvm IR using `opt` binary which
 comes with \llvm. Optimization passes are written in C++ using \llvm libraries.
 
-Finally, the optimized IR has to be translated into platform specific assembler.
-This done by code generator, which is part of \llvm. \llvm comes with code
-generator for many platforms, including X86, X86_64, ARM, and PowerPC. \llvm
-also comes with infrastructure for writing code generators for other platforms.
+Finally, the optimized IR has to be translated into a platform-specific
+assembler. This is done by a code generator, which is part of \llvm. \llvm comes
+with code generator for many platforms, including X86, X86_64, ARM, and
+PowerPC. \llvm also comes with infrastructure for writing code generators for
+other platforms.
 
 
-# Exception Handling
-
-\label{sec:llvm:eh}
+# Exception Handling \label{sec:llvm:eh}
 
 Exception handling in \llvm \cite{llvm:except} is based on Itanium ABI zero-cost
 exception handling. This means that exception handling does not incur any
@@ -105,53 +104,53 @@ zero-cost until the exception is actually used.
 The concrete implementation of exception handling is platform dependent and as
 such cannot be completely described in \llvm --- it usually consists of
 *exception handling tables* compiled in the binary, an *unwinder* library
-provided by the operating system and a language-dependent way of throwing and
+provided by the operating system, and a language-dependent way of throwing and
 catching exceptions. The exception handling tables and most of the unwinder
-interface is not exposed into \llvm IR as it is filled in by backend for
-particular platform. Nevertheless, there must be information in \llvm IR
-which allow generation of this backend-specific data. For this reason \llvm has
-three exception-handling-related instructions: `invoke`, `landingpad`, and
+interface is not exposed into \llvm IR as it is filled in by the backend for
+the particular platform. Nevertheless, there must be information in \llvm IR
+which allows generation of this backend-specific data. For this reason \llvm
+has three exception-handling-related instructions: `invoke`, `landingpad`, and
 `resume`.
-
-`invoke`
-
-~   instruction works similar to `call` instruction, it can be used to
-    call function in such a way that if it throws an exception this exception
-    will be handled by dedicated basic block. Unlike `call` `invoke` is a
-    terminator instruction --- it has to be last in basic block. Apart from
-    function to call and its parameters it also takes two basic block labels,
-    one to be used when the function return normally and one to be used on
-    exception propagation.
 
 `landingpad`
 
 ~   is used at the beginning of exception handling block (it can be preceded
     only by `phi` instruction). Its return value is platform and language
-    specific description of the exception which is propagating. For C++ this is
-    a tuple containing a pointer to the exception and a *selector* --- an
-    integral value corresponding to the type of the exception which is used in
-    the exception catching code. The basic block which contains `landingpad`
+    specific description of the exception which is being propagated. For C++
+    this is a tuple containing a pointer to the exception and a *selector* ---
+    an integral value corresponding to the type of the exception which is used
+    in the exception catching code. The basic block which contains `landingpad`
     instruction will be referred to as *landing block*.[^lblp]
 
     The `landingpad` instruction specifies which exception it can catch --- it
     can be have multiple *clauses* and each clause is either `catch` clause,
     meaing the `landingpad` should be used for exceptions of type this clause
     specifies, or `filter` clause --- in this case `landingpad` should be
-    entered if this the type of exception does not match any of the types in the
+    entered if the type of exception does not match any of the types in the
     clause. The type of the exception is determined dynamically, that is the
     clauses contain run time type information objects. Furthermore, the
-    `landingpad` can be denoted as `cleanup`, meaning it shlould be entered even
-    if no matching clause is found.
+    `landingpad` can be denoted as `cleanup`, meaning it shlould be entered
+    even if no matching clause is found.
 
     As the matching clause is determined at the runtime the code in landing
     block has to be able to determine which of the possible clauses (or
     `cleanup` flag) fired. For this reason the return value of `landingpad`
     instruction is determined using a *personality function* --- a
-    language-dependent function which is called when throwing the exception or
-    by stack unwinder. For C++ and Clang the personality function is
+    language-specific function which is called when throwing the exception or
+    by the stack unwinder. For C++ and Clang the personality function is
     `__gxx_personality_v0` and it returns pointer to the exception and integral
     selector which uniquely determines which catch block of the original C++
     code should fire.
+
+`invoke`
+
+~   instruction works similar to `call` instruction, it can be used to
+    call function in such a way that if it throws an exception this exception
+    will be handled by dedicated basic block. Unlike `call`, `invoke` is a
+    terminator instruction --- it has to be last in basic block. Apart from
+    function to call and its parameters it also takes two basic block labels,
+    one to be used when the function return normally and one to be used on
+    exception propagation, the second one must be label of landing block.
 
 `resume`
 
@@ -178,7 +177,7 @@ and catching of the exception is left to be provided by the frontend.
 multi-threaded programs \cite{llvm:atomics}. \llvm's atomic instructions are
 build so that they can provide functionality required by C++11 atomic operation
 library, as well as Java volatile. Apart from atomic versions of `load` and
-`store` instruction \llvm supports three atomic instructions --- `atomicrmw`
+`store` instructions \llvm supports three atomic instructions --- `atomicrmw`
 (atomic read-modify-write) and `cmpxchg` (atomic compare-and-exchange, also
 compare-and-swap) which are essentially atomic load immediately followed by
 atomic store in such a way that no other memory action can happen between the
@@ -209,7 +208,7 @@ Unordered
 
 ~   can be used only for `load` and `store` instructions and does not guarantee
     any synchronization but it guarantees that the load or store itself will be
-    atomic, that is it cannot be split into two or more instructions or
+    atomic --- it cannot be split into two or more instructions or
     otherwise changed in a way that load would result in value different from
     all written previously to the same memory location. This memory ordering is
     used for non-atomic loads and stores in Java and other programming languages
@@ -217,14 +216,14 @@ Unordered
 
 Monontonic
 
-~   corresponds to `memory_order_relaxed` in C++11 standard, in addition to
+~   corresponds to `memory_order_relaxed` in C++11 standard. In addition to
     guarantees given by unordered, it guarantees that a total ordering consistent
     with happens-before partial order exists between all monotonic operations
     affecting same memory location.
 
 Acquire
 
-~   corresponds to `memory_order_acquire` in C++11, in addition to guarantess of
+~   corresponds to `memory_order_acquire` in C++11. In addition to guarantess of
     monotonic, a read operation flagged as acquire creates synchronizes-with
     edge with a write operation which created the value if this write operation
     was flagged as release. Acquire is memory ordering strong enought to
@@ -232,7 +231,7 @@ Acquire
 
 Release
 
-~   corresponds to `memory_order_release` in C++11, in addition to guarantess of
+~   corresponds to `memory_order_release` in C++11. In addition to guarantess of
     monotonic, it can create synchronizes-with edge with corresponding acquire
     operation. Release is memory ordering storng enoght to implement lock
     release.
@@ -312,9 +311,9 @@ writes which happen-before the fence *R* also happen-before the fence *A*. An
 illustration how this can be used to implement spin-lock can be found in
 \autoref{fig:llvm:fence}.
 
-If the fence has `seq_cst` ordering it also participates in global program order
-of all sequentially consistent operations. A fence is not allowed to have
-`monotonic`, `unordered`, or no atomic ordering.
+If the fence has sequentially consistent ordering it also participates in
+global program order of all sequentially consistent operations. A fence is not
+allowed to have monotonic, unordered, or no atomic ordering.
 
 \begFigure[tp]
 
