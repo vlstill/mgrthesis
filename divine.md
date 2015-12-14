@@ -241,7 +241,7 @@ void *__divine_memcpy( void *dest, void *src, size_t count );
 The behavior of `__divine_memcpy` is similar to `memmove` function in standard C
 library, that is, it copies `count` bytes from `src` to `dest`, the memory areas
 are allowed to overlap. This intrinsic is required due to pointer tracking used
-for heap canonization (see \autoref{sec:divine:heap} for more details).
+for heap canonization (see \cite{RBB13} for details on heap canonization).
 
 ```{.cpp}
 void *__divine_va_start();
@@ -435,6 +435,15 @@ observable \divine uses following heuristics:
     concerned memory location can be visible by other threads, if it can the
     instruction is observable.
 
+To detect which memory can be accessed by the threads \divine checks
+reachability of given memory object in memory graph (memory objects are nodes,
+pointers are edges of this graph). In order to check if thread *a* has access to
+memory object *x* it has to be checked that *x* is reachable either from global
+variables of from registers in any stack frame which belongs to *a*. To build
+the memory graph \divine remembers which memory locations contain heap pointers
+(this is required as it is valid to cast pointer to and from number in both
+\llvm and C++).
+
 [^memcpy]: In fact \divine 3.3 does not consider `__divine_memcpy` observable,
 this is a bug which I discovered and fixed during writing of this thesis.
 
@@ -445,9 +454,6 @@ instructions. For this reason \divine also tracks which program counter values
 were encountered during successor generation and if any of them is to be
 encountered for the second time a state is emitted before the second execution
 of given instruction.
-
-### Heap Symmetry Reduction \label{sec:divine:heap}
-
 
 
 # \lart
