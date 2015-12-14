@@ -432,3 +432,10 @@ consistent (for description about atomic instructions and atomic orderings in
 the original proposal which allows simulation of weaker versions of atomic
 functions.
 
+# Code Optimization in Formal Verification
+
+When real-world code is being verified 
+
+# Atomic Blocks
+
+# Nondeterminism Tracking
