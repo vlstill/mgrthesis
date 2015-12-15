@@ -63,7 +63,7 @@ completely replaced without the need to modify and recompile \divine itself, and
 is closely tied to the language of verified program, while the interpreter is
 mostly language agnostic.
 
-## Interpreter
+## Interpreter \label{sec:divine:interpreter}
 
 The \llvm interpreter is responsible for execution of \llvm instructions and
 intrinsic functions (a built-in operations which are represented in \llvm as
@@ -165,6 +165,8 @@ cycles, such as busy-waiting for variable to be set by other thread.
 void __divine_interrupt_mask();
 void __divine_interrupt_unmask();
 ```
+
+\label{sec:divine:llvm:mask}
 
 The `__divine_interrupt_mask` function marks start of atomic section, all
 actions performed until the atomic section is ends will happen atomically. The
@@ -435,7 +437,7 @@ observable \divine uses following heuristics:
     concerned memory location can be visible by other threads, if it can the
     instruction is observable.
 
-To detect which memory can be accessed by the threads \divine checks
+To detect which memory can be accessed from particular threads \divine checks
 reachability of given memory object in memory graph (memory objects are nodes,
 pointers are edges of this graph). In order to check if thread *a* has access to
 memory object *x* it has to be checked that *x* is reachable either from global

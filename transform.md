@@ -1,118 +1,179 @@
-# New Interface for Atomic Sections
+In this chapter we will propose \llvm transformations which aim at improving
+model checking capabilities. All the proposed transformations were
+implemented in \lart and will be release together with the next release of
+\divine.
 
-The interface for declaring atomic sections in verified code (described in
-\autoref{sec:divine:interp}) is hard to use, the main reason being that while
-the mask set by `__divine_interrupt_mask` is inherited by called functions,
-these have no way of knowing if they are inside atomic section, and more
-importantly, they can end the atomic section by calling
-`__divine_interrupt_unmask`. This is especially bad for composition of atomic
-functions, see \autoref{fig:ex:atomic:bad} for example. For this reason, the only
-compositionally safe way to use \divine's original atomic sections is to never
-call `__divine_interrupt_unmask` and let \divine end the atomic section when the
-caller of `__divine_interrupt_mask` ends.
+# Analyses and Transformation Building Blocks
 
-#@FIG:tp
+Many tasks done in \llvm transformations are common and therefore should be
+provided as separate and reusable analyses or transformation building blocks, so
+that they can be ready to use when required and it is not necessary to implement
+them ad-hoc every time. In some cases (for example dominator tree and domination
+relation) analyses are provided in \llvm library, and \llvm also provides
+useful utilities for instruction and basic block manipulation, such as basic
+block splitting and instruction insertion. In other cases it is useful to add
+to this set of primitives, for this reason \lart was extended to include several
+such utilities.
 
-```{.cpp .numberLines}
-void doSomething( int *ptr, int val ) {
-    __divine_interrupt_mask();
-    *ptr += val;
-    __divine_interrupt_unmask();
-    foo( ptr );
-}
+## Fast Instruction Reachability \label{sec:trans:b:reach}
 
-int main() {
-    int x = 0;
-    __divine_interrupt_mask();
-    doSomething( &x );
-    __divine_interrupt_unmask();
-}
+While \llvm has support to check whether value of one instruction might reach
+other instruction (using `isPotentiallyReachable` function) this function is
+slow if many-to-many reachability is to be calculated (this function's time
+complexity is linear with respect to the number of basic blocks in control flow
+graph of the function).  For this reason we introduce analysis which
+pre-calculates reachability relation between all instructions and allows fast
+querying, this analysis can be found in `lart/analysis/bbreach.h`.
+
+To calculate instruction reachability fast and store it compactly, we store
+transitive closure of basic block reachability instead, transitive closure of
+instruction reachability can be easily retrieved from this information.
+Instruction $i$ other than `invoke` reaches instruction $j$ in at least one step
+if and only if the basic block $b(i)$ of instruction $i$ reaches in at least one
+step basic block $b(j)$ of instruction $j$, or $b(i) = b(j)$ and $i$ is earlier
+in $b(i)$ than $j$. For `invoke` instruction the situation is more complicated
+as it is the only terminator instruction which returns value, and its value is
+available only in its normal destination block and not in its unwind destination
+block (the landing block which is used when the function called by the `invoke`
+throws an exception). For this reason value of `invoke` instruction $i$ reaches
+instruction $j$ if and only if $b(j)$ is reachable (in any number of steps,
+including zero) from normal destination basic block of $i$.
+
+Basic block reachability is calculated in two phases, first basic block graph
+of the function is split into strongly connected components using Tarjan's
+algorithm with results into directed acyclic graph of strongly connected
+components, then this SCC collapse is recursively traversed and transitive
+closure of SCC reachability is calculated \TODO{algorithm?}.
+
+The theoretical time complexity of this algorithm is linear in the size of the
+control flow graph of the function (which is in the worst case
+$\mathcal{O}(n^2)$ where $n$ is number of basic blocks). In practice associative
+maps are used in several parts of the algorithm resulting in worst case
+time complexity in $\mathcal{Oa}(n^2 \cdot \log n)$ for transitive closure
+calculation and $\mathcal{O}(\log n)$ for retrieval of the information whether
+one block reaches another. However, since in practice control flow graphs 
+are sparse,[^sparsecfg] the expected time complexity is $\mathcal{O}(n \log n)$
+for transitive closure.
+
+[^sparsecfg]: The argumentation is that all terminator instructions other that
+`switch` have at most two successors and `switch` is rare, for this reason the
+average number of edges in control flow graph with $n$ vertices is expected to
+be less then $2n$.
+
+
+## Exception Visibility \label{sec:trans:ehv}
+
+Often \llvm is transformed in a way which requires that certain cleanup action
+is performed right before a function exits. Implementing this for languages
+without non-local control flow transfer other then with `call` and `ret`
+instructions, for example standard C, would be fairly straight-forward --- it is
+sufficient to run the cleanup just before the function returns. However, while
+pure standard-compliant C has no non-local control transfer, in POSIX there are
+`setjmp` and `longjmp` functions which allow non-local jumps and, even more
+importantly, C++ has exceptions already in its standard. Since `longjmp` and
+`setjmp` are not supported in \divine we will assume they will not be used in
+the transformed program. On the other hand, exceptions are supported by \divine
+and therefore should be taken into account.
+
+In the presence of exceptions (but without `longjmp`) function can be exited in
+the following ways:
+
+*   by `ret` instruction;
+*   by `resume` instruction which resumes propagation of exception which was
+    earlier intercepted by `landingpad`;
+*   when exception causes unwinding, but the active instruction through which
+    the exception is propagating is `call` and not `invoke`, or it is `invoke`
+    but the associated `landingpad` does not catch exception of given type ---
+    in this case the frame of the function is unwound and the exception is not
+    intercepted.
+
+The latest case happens often in C++ functions which do not require any
+destructors to be run at function, in those cases Clang usually generates `call`
+instead of `invoke` even if the callee can throw an exception as it is not
+necessary to intercept the exception in the caller. Also, if the function
+contains `try` block Clang will generate `invoke` but since there is not need to
+run destructors the corresponding `landingpad` will not intercept exceptions
+which are not catched by `catch` block.  The problem with the latest case is
+that the function exit is implicit, at any `call` instruction which can throw or
+at `invoke` with `landingpad` without `cleanup` flag.  In order to make it
+possible to add code at the end of function it is therefore necessary to
+eliminate this implicit way of exiting function without intercepting the
+exception.
+
+Therefore we need to transform any call in such a way that if the called
+function can throw an exception it is always called by `invoke`, and all the
+`langingpad` instruction have `cleanup` flag. Furthermore, this transformation
+must not change observable behaviour of the program --- if the exception would
+fall through without being intercepted in the original program, it needs to be
+intercepted and immediately resumed, and if the exception was intercepted by the
+original program, its processing must be left unchanged (while the fact that the
+exception is intercepted by `langingpad` and immediately resumed makes the run
+different from the run in the original program, this change is not
+distinguishable by any safety or stuttering-free \ltl property, and therefore
+the transformed program can be considered equivalent to the original).
+
+After this transformation every exception is visible in every function it can
+propagate through. Now if we need to add cleanup code to the function it is
+sufficient to add it before every `ret` and `resume` instruction, as there is no
+other way the function can be exited.
+
+### Implementation
+
+The idea outlined above is implemented in `lart/support/cleanup.h` by the
+function `makeExceptionsVisible`. Any `call` instruction for which we cannot
+show that the callee cannot throw an exception is transformed into `invoke`
+instruction, which allows as to branch out into a landing block if an exception
+is thrown by the callee. The `landingpad` in the landing block need to be set up
+in a way in can caught any exception (this can be done using `cleanup` flag for
+`landingpad`). The instrumentation can be done as follows:
+
+*   for a call site, if it is a `call`:
+
+    1.  given a `call` instruction to be converted, split its parent basic block
+        into two just after this instruction (we will call these blocks *invoke
+        block* and *invoke-ok block*),
+    2.  add a new basic block for cleanup, this block will contain a `landingpad`
+        instruction with `cleanup` flag and a `resume` instruction (we will call
+        this block *invoke-unwind block*),
+    3.  replace the `call` instruction with `invoke` with the same function and
+        parameters, its normal destination is set to invoke-ok block and its
+        unwind destionation is set to invoke-unwind block,
+
+*   otherwise, if it is an `invoke` and its unwind block does not contain
+    `cleanup` flag in `landingpad`:
+    1.  create new basic block containing just resume instruction (*resume
+        block*)
+    2.  add `cleanup` flag into `landingpad` of the unwind block of the `invoke`
+        and branch into *resume block* if landing block is triggered due to
+        `cleanup`,
+*   otherwise leave the instruction unmodified.
+
+Any calls using `call` instruction with known destination which is a function
+marked with `nounwind` attribute will not be modified. Functions marked with
+`nounwind` need to be checked for exceptions as \llvm states that these
+functions should never throw an exception and therefore we assume that throwing
+and exception from such a function will be reported as an error by the verifier
+
+```{.llvm}
+TODO: příklad
+%1 = call
 ```
-\caption{Example of composition problem with original \divine atomic sections
---- the atomic section begins on line 10 and is inherited to
-\texttt{doSomething}, but the atomic section ends by the unmask call at line 4
-and the rest of \texttt{doSomething} and \texttt{foo} are not executed
-atomically. The atomic section is then re-entered when \texttt{doSomething}
-returns.}
-\label{fig:ex:atomic:bad}
-#@eFIG
 
-To alleviate aforementioned problems we reimplemented atomic sections in
-\divine. The new design uses only one *interrup flag* to indicate that current
-thread of execution is in atomic section, this flag is internal to the
-interpreter and need not be saved in the state --- indeed it would be always set
-to false in the state emitted by the generator because the state can never be
-emitted in the middle of atomic section. Furthermore, we modified
-`__divine_interrupt_mask` to return `int` value corresponding to value of
-interrupt flag before it was set by this call to `__divine_interrupt_mask`.
+\TODO{popis příkladu}
 
-To make using new atomic sections easier we provide higher level interface for
-atomic sections by the means of a C++ library and annotations. The C++ interface
-is intended to be used mostly by developers of language bindings for \divine,
-while the annotations are designed to be usable by end-users of \divine.
-
-The C++ interface is RAII-based[^raii], it works similar to C++11 `unique_lock`
-with recursive mutexes --- an atomic section begins by construction of object of
-type `divine::InterruptMask` and is left either by call of `release` method on
-this object, or by in the destructor of `InterruptMask` object. If atomic
-sections are nested, only the outermost `release` actually ends the atomic
-section. See \autoref{fig:ex:atomic:cpp} for an example.
-
-#@FIG:tp
-```{.cpp}
-#include <divine/interrupt.h>
-
-void doSomething( int *ptr, int val ) {
-    divine::InterruptMask mask;
-    *ptr += val;
-    // relea the mask only if no mask higher on stack:
-    mask.release();
-    // masked only if caller of doSomething was masked:
-    foo( ptr );
-}
-
-int main() {
-    int x = 0;                    // not masked
-    divine::InterruptMask mask;
-    doSomething( &x );            // maksed
-    // mask ends automatically at the end of main
-}
-```
-
-\caption{An example of use of C++ interface for the new atomic sections in
-\divine.}
-\label{fig:ex:atomic:cpp}
-#@eFIG
-
-[^raii]: Resource Acquisition Is Initialization, a common pattern in C++ in
-which a resource is allocated inside object and safely deallocated when that
-object exits scope, usually at the end of function. \TODO{odkaz, citace?}
-
-The annotation interface is based on \lart transformation pass and annotations
-which can be used to mark functions atomic. This way, entire functions can
-be marked atomic by adding `__lart_atomic_function` to their header, see
-\autoref{fig:ex:atomic:lart} for an example.
-
-#@FIG:tp
-```{.cpp}
-#include <lart/atomic.h>
-
-int atomicInc( int *ptr, int val ) __lart_atomic_function {
-    int prev = *ptr;
-    *ptr += val;
-    return prev;
-}
-```
-\caption{An example of usage of annotation interface for atomic functions in
-\divine{} --- the function \texttt{atomicInc} is aways executed atomically and is
-safe to be executed inside another function annotated as atomic.}
-\label{fig:ex:atomic:lart}
-#@eFIG
-
-\TODO{implementation}
+After the call instrumentation the following holds: every time the function is
+entered by stack unwinding due to active exception, the control is transfered to
+a landing block and, if before this transformation the exception would not be
+intercepted by `landingpad` in this function, after the transformation 
+the same exception would be rethrown by `resume`.
 
 
-# Local Variable Cleanup
+\bigskip
+Furthermore, to simplify transformations which add cleanups at function exits, a
+function `atExits` is available in the same header file.
+
+
+## Local Variable Cleanup
 
 When enriching \llvm bitcode in a way which modifies local variables it is
 often necessary to perform cleaning operation at the end of the scope of these
@@ -146,58 +207,6 @@ which can throw an exception so that any exception can be caught (and re-thrown
 if it was not handled originally), and then a cleanup code needs to be added
 into appropriate location in the exception handling path and normal function
 exit path.
-
-## Call Instrumentation
-
-For the first phase it is sufficient to convert any `call` instruction for which
-we cannot show that the callee cannot throw an exception into `invoke`
-instruction, which allows as to branch out into a landing block if an
-exception is thrown by the callee. The `landingpad` in the landing block need to
-be set up in a way in can caught any exception (this can be done using `cleanup`
-flag for `landingpad`). The instrumentation can be done as follows:
-
-*   for a call site, if it is a `call`:
-
-    1.  given a `call` instruction to be converted, split its parent basic block
-        into two just after this instruction (we will call these blocks *invoke
-        block* and *invoke-ok* block),
-    2.  add a new basic block for cleanup, this block will contain a `landingpad`
-        instruction with `cleanup` flag and a `resume` instruction (we will call
-        this block *invoke-unwind block*),
-    3.  replace the `call` instruction with `invoke` with the same function and
-        parameters, its normal destination is set to *invoke-ok block* and its
-        unwind destionation is set to *invoke-unwind block*,
-
-*   otherwise, if it is an `invoke` and its unwind block does not contain `cleanup`
-    flag in `landingpad`:
-    1.  create new basic block containing just resume instruction (*resume
-        block*)
-    2.  add `cleanup` flag into `landingpad` of the unwind block of the `invoke` and
-        branch into *resume block* if landing block is triggered due to
-        `cleanup`.
-*   \TODO{otherwise nothing is done}
-
-Any calls using `call` instruction with known destination which is a function
-marked with `nounwind` attribute will not be modified. Functions marked with
-`nounwind` need to be checked for exceptions as \llvm states that these
-functions should never throw an exception and therefore we assume that throwing
-and exception from such a function will be reported as an error by the verifier
-\TODO{specifikovat někde, že je to požadavek na verifikátor}.
-
-```{.llvm}
-TODO: příklad
-%1 = call
-```
-
-\TODO{popis příkladu}
-
-After the call instrumentation the following holds: every time the function is
-entered by stack unwinding due to active exception, the control is transfered to
-a landing block and, if before this transformation the exception would not be
-intercepted by `landingpad` in this function, after the transformation 
-the same exception would be rethrown by `resume`.
-
-\TODO{pozorvonání z jiného vlákna -> přidává běhy, ale o žádné nepříjde}
 
 ## Adding Exception Handling Cleanup
 
@@ -254,9 +263,159 @@ if.end:  ; preds = %if.then, %entry
 In this example, `%y.phi` represents `%y` at the cleanup point --- it can be
 either equal to `%y` if control passed through definition of `%y`, or `null`
 otherwise.
+\TODO{pozorvonání z jiného vlákna -> přidává běhy, ale o žádné nepříjde}
+
 
 \TODO{Those phi nodes can be added by simple algorithm which traverses BBs in
 DFS order…}
+
+# New Interface for Atomic Sections
+
+The interface for declaring atomic sections in verified code (described in
+\autoref{sec:divine:llvm:mask}) is hard to use, the main reason being that while
+the mask set by `__divine_interrupt_mask` is inherited by called functions,
+these have no way of knowing if they are inside atomic section, and more
+importantly, they can end the atomic section by calling
+`__divine_interrupt_unmask`. This is especially bad for composition of atomic
+functions, see \autoref{fig:ex:atomic:bad} for example. For this reason, the
+only compositionally safe way to use \divine's original atomic sections is to
+never call `__divine_interrupt_unmask` and let \divine end the atomic section
+when the caller of `__divine_interrupt_mask` ends.
+
+\begFigure[tp]
+
+```{.cpp .numberLines}
+void doSomething( int *ptr, int val ) {
+    __divine_interrupt_mask();
+    *ptr += val;
+    __divine_interrupt_unmask();
+    foo( ptr );
+}
+
+int main() {
+    int x = 0;
+    __divine_interrupt_mask();
+    doSomething( &x );
+    __divine_interrupt_unmask();
+}
+```
+
+\begCaption
+Example of composition problem with original \divine atomic sections
+--- the atomic section begins on line 10 and is inherited to
+\texttt{doSomething}, but the atomic section ends by the unmask call at line 4
+and the rest of \texttt{doSomething} and \texttt{foo} are not executed
+atomically. The atomic section is then re-entered when \texttt{doSomething}
+returns.
+\endCaption
+\label{fig:ex:atomic:bad}
+\endFigure
+
+To alleviate aforementioned problems we reimplemented atomic sections in
+\divine. The new design uses only one *mask flag* to indicate that current
+thread of execution is in atomic section, this flag is internal to the
+interpreter and need not be saved in the state --- indeed it would be always set
+to false in the state emitted by the generator because the state can never be
+emitted in the middle of atomic section. Furthermore, we modified
+`__divine_interrupt_mask` to return `int` value corresponding to value of
+mask flag before it was set by this call to `__divine_interrupt_mask`.
+
+To make using new atomic sections easier we provide higher level interface for
+atomic sections by the means of a C++ library and annotations. The C++ interface
+is intended to be used mostly by developers of language support for \divine,
+while the annotations are designed to be usable by users of \divine.
+
+The C++ interface is RAII-based[^raii], it works similar to C++11 `unique_lock`
+with recursive mutexes --- an atomic section begins by construction of an object
+of type `divine::InterruptMask` and is left either by call of `release` method
+on this object, or by in the destructor of the `InterruptMask` object. If atomic
+sections are nested, only the `release` on the object which started the atomic
+section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
+example.
+
+\begFigure[tp]
+```{.cpp}
+#include <divine/interrupt.h>
+
+void doSomething( int *ptr, int val ) {
+    divine::InterruptMask mask;
+    *ptr += val;
+    // relea the mask only if no mask higher on stack:
+    mask.release();
+    // masked only if caller of doSomething was masked:
+    foo( ptr );
+}
+
+int main() {
+    int x = 0;                    // not masked
+    divine::InterruptMask mask;
+    doSomething( &x );            // maksed
+    // mask ends automatically at the end of main
+}
+```
+
+\caption{An example of use of C++ interface for the new atomic sections in
+\divine.}
+\label{fig:ex:atomic:cpp}
+\endFigure
+
+[^raii]: Resource Acquisition Is Initialization, a common pattern in C++ in
+which a resource is allocated inside object and safely deallocated when that
+object exits scope, usually at the end of function. \TODO{odkaz, citace?}
+
+The annotation interface is based on \lart transformation pass and annotations
+which can be used to mark functions atomic. This way, entire functions can
+be marked atomic by adding `__lart_atomic_function` to their header, see
+\autoref{fig:ex:atomic:lart} for an example.
+
+\begFigure[tp]
+```{.cpp}
+#include <lart/atomic.h>
+
+int atomicInc( int *ptr, int val ) __lart_atomic_function {
+    int prev = *ptr;
+    *ptr += val;
+    return prev;
+}
+```
+\begCaption
+An example of usage of annotation interface for atomic functions in \divine ---
+the function `atomicInc` is aways executed atomically and is safe to be executed
+inside another function annotated as atomic.
+\endCaption
+\label{fig:ex:atomic:lart}
+\endFigure
+
+
+### Implementation of Annotation Interface
+
+Atomic sections using annotations are implemented in two phases --- first the
+function is annotated with `__lart_atomic_function` which is in fact macro
+which expands to GCC/Clang attributes `annotate("lart.interrupt.masked")` and
+`noinline`, the first one is used so that the annotated function can be
+identified in \llvm, the second makes sure the function will not be inlined (if
+it would be inlined it would not be possible to identify it in the bitcode).
+
+Second phase is \lart pass which actually adds atomic sections into annotated
+functions. For each function which is annotated with `lart.interrupt.masked` it
+adds call to `__divine_interrupt_mask` at the beginning of the function, and
+call to `__divine_interrupt_unmask` before any exit point of the function (exit
+point is either `ret` or `resume` instruction, that is either normal exit, or
+exception propagation). The call to `__divine_interrupt_unmask` is conditional,
+it is only called if `__divine_interrupt_mask` returned 0 (that is, atomic
+section begun by this call).
+
+However, since the transformed program can use exceptions, and it is desirable
+that mask is exited every time the annotated function is left (not just during
+normal execution), it is necessary to first make all exceptions visible, and
+then perform the aforementioned transformation. To make exceptions visible we
+use the transformation outlined in \autoref{sec:trans:b:ehv}, which
+makes sure any exception which would otherwise propagate through the transformed
+function without stopping will be intercepted by landing block and immediatelly
+resumed. After this transformation it is sufficient to end atomic section before
+any exit from the function, since no exception can fall through without being
+intercepted.
+
 
 # Weak Memory Models
 
