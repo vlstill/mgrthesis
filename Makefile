@@ -19,7 +19,11 @@ thesis.bcf :
 		-e 's/^\\section\{@FIG:([^\}]*)\}.*$$/\\begin{figure}[\1]/' \
 		-e 's/^\\section\{@eFIG\}.*$$/\\end{figure}/' \
 		-e 's/\\begCaption/\\caption{/' -e 's/\\endCaption/\}/' \
-		-e 's/\\begFigure/\\begin{figure}/' -e 's/\\endFigure/\\end{figure}/'
-	@# sed -i $@ -re 's/\\label\{[^}]*-[^}]*\}//'
+		-e 's/\\begFigure/\\begin{figure}/' -e 's/\\endFigure/\\end{figure}/' \
+		-e 's/\\begSplit/\\begin{minipage}[t]{0.48\\textwidth}/' \
+		-e 's/\\Split/\\end{minipage}\\hfill\\begin{minipage}[t]{0.48\\textwidth}/' \
+		-e 's/\\endSplit/\\end{minipage}/'
 
+exvis.ll : exvis.cpp
+	clang++ -std=c++14 -S -emit-llvm $< -O2
 
