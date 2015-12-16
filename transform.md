@@ -49,7 +49,7 @@ The theoretical time complexity of this algorithm is linear in the size of the
 control flow graph of the function (which is in the worst case
 $\mathcal{O}(n^2)$ where $n$ is number of basic blocks). In practice associative
 maps are used in several parts of the algorithm resulting in worst case
-time complexity in $\mathcal{Oa}(n^2 \cdot \log n)$ for transitive closure
+time complexity in $\mathcal{O}(n^2 \cdot \log n)$ for transitive closure
 calculation and $\mathcal{O}(\log n)$ for retrieval of the information whether
 one block reaches another. However, since in practice control flow graphs 
 are sparse,[^sparsecfg] the expected time complexity is $\mathcal{O}(n \log n)$
@@ -61,19 +61,20 @@ average number of edges in control flow graph with $n$ vertices is expected to
 be less then $2n$.
 
 
-## Exception Visibility \label{sec:trans:ehv}
+## Exception Visibility \label{sec:trans:b:vex}
 
 Often \llvm is transformed in a way which requires that certain cleanup action
-is performed right before a function exits. Implementing this for languages
-without non-local control flow transfer other then with `call` and `ret`
-instructions, for example standard C, would be fairly straight-forward --- it is
-sufficient to run the cleanup just before the function returns. However, while
-pure standard-compliant C has no non-local control transfer, in POSIX there are
-`setjmp` and `longjmp` functions which allow non-local jumps and, even more
-importantly, C++ has exceptions already in its standard. Since `longjmp` and
-`setjmp` are not supported in \divine we will assume they will not be used in
-the transformed program. On the other hand, exceptions are supported by \divine
-and therefore should be taken into account.
+is performed right before a function exits, one such example would be unlocking
+atomic section, used in \autoref{sec:trans:atomic}. Implementing this for
+languages without non-local control flow transfer other then with `call` and
+`ret` instructions, for example standard C, would be fairly straight-forward ---
+it is sufficient to run the cleanup just before the function returns. However,
+while pure standard-compliant C has no non-local control transfer, in POSIX
+there are `setjmp` and `longjmp` functions which allow non-local jumps and, even
+more importantly, C++ has exceptions already in its standard. Since `longjmp`
+and `setjmp` are not supported in \divine we will assume they will not be used
+in the transformed program. On the other hand, exceptions are supported by
+\divine and therefore should be taken into account.
 
 In the presence of exceptions (but without `longjmp`) function can be exited in
 the following ways:
@@ -95,10 +96,13 @@ contains `try` block Clang will generate `invoke` but since there is not need to
 run destructors the corresponding `landingpad` will not intercept exceptions
 which are not catched by `catch` block.  The problem with the latest case is
 that the function exit is implicit, at any `call` instruction which can throw or
-at `invoke` with `landingpad` without `cleanup` flag.  In order to make it
-possible to add code at the end of function it is therefore necessary to
-eliminate this implicit way of exiting function without intercepting the
-exception.
+at `invoke` with `landingpad` without `cleanup` flag.
+
+In order to make it possible to add code at the end of function it is therefore
+necessary to eliminate this implicit way of exiting function without
+intercepting the exception and the transformation must be performed in such a
+way that it does not interfere with exception handling which was already present
+in the transformed function.
 
 Therefore we need to transform any call in such a way that if the called
 function can throw an exception it is always called by `invoke`, and all the
@@ -152,14 +156,60 @@ Any calls using `call` instruction with known destination which is a function
 marked with `nounwind` attribute will not be modified. Functions marked with
 `nounwind` need to be checked for exceptions as \llvm states that these
 functions should never throw an exception and therefore we assume that throwing
-and exception from such a function will be reported as an error by the verifier
+and exception from such a function will be reported as an error by the verifier.
 
-```{.llvm}
-TODO: příklad
-%1 = call
+\begFigure[tp]
+```{.cpp}
+void foo() { throw 0; }
+void bar() { foo(); }
+int main() {
+    try { bar(); }
+    catch ( int & ) { }
+}
 ```
 
-\TODO{popis příkladu}
+An example of simple C++ program which demonstrates use of exceptions, the
+exception is thrown by `foo`, goes through `bar` and is catched in `main`.
+
+```{.llvm}
+define void @_Z3barv() #0 {
+entry:
+  call void @_Z3foov()
+  unreachable
+}
+```
+
+\llvm IR for function `bar` of the previous example (the names of functions are
+mangled by C++ compiler). It can be seen that while `foo` can throw an exception
+and this exception can propagate through `bar`, `bar` does not intercept this
+exception in any way.
+
+```{.llvm .numberLines}
+define void @_Z3barv() #0 personality
+    i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+entry:
+  invoke void @_Z3foov()
+      to label %fin unwind label %lpad
+lpad:
+  %0 = landingpad { i8*, i32 } cleanup
+  resume { i8*, i32 } %0 ; rethrow the exception
+fin:
+  unreachable
+}
+```
+
+A transformed version of `bar` function in which the exception is intercepted
+and therefore visible in this function, but it is immediately resumed. A cleanup
+code would be inserted just before line 8. The original basic block `entry` was
+split into `entry` and `fin` and the `call` instruction was replaced with
+`invoke` which transfers control to the `lpad` label if any exception is thrown
+by `foo`.  The function header is now extended with personality function, this
+personality function calculates the value returned by `landingpad` for given
+exception.
+
+\caption{An example of transformation of a \llvm to make exceptions visible.}
+\label{fig:transform:b:vex:example}
+\endFigure
 
 After the call instrumentation the following holds: every time the function is
 entered by stack unwinding due to active exception, the control is transfered to
@@ -167,13 +217,20 @@ a landing block and, if before this transformation the exception would not be
 intercepted by `landingpad` in this function, after the transformation 
 the same exception would be rethrown by `resume`.
 
+Furthermore, if the transformation adds `landingpad` into a function which did
+not contain `landingpad` before, it is necessary to set personality function for
+this function. For this reason, personality function which is used by the
+program is a parameter of the transformation.
+
+An example of the transformation can be seen in
+\autoref{fig:transform:b:vex:example}.
 
 \bigskip
 Furthermore, to simplify transformations which add cleanups at function exits, a
 function `atExits` is available in the same header file.
 
 
-## Local Variable Cleanup
+## Local Variable Cleanup \label{sec:trans:b:lvc}
 
 When enriching \llvm bitcode in a way which modifies local variables it is
 often necessary to perform cleaning operation at the end of the scope of these
@@ -183,49 +240,19 @@ These variable cleanups are essentially akin to C++ destructors in a sense that
 they get executed at the end of scope of the variable, no matter how this
 happens, with only exception of thread termination.
 
-Implementing variable cleanups for languages without non-local control flow
-transfer other then with `call` and `return` instructions, for example standard
-C, would be fairly straight-forward --- it is sufficient to run cleanup just
-before function returns and clean-up any local variables from which this
-particular return point is reachable. However, while pure standard-compliant C
-has no non-local control transfer, in POSIX there are `setjmp` and `longjmp`
-functions which allow non-local jumps and, even more importantly, C++ has
-exceptions already in its standard.
+The local variable cleanup builds on top of function cleanups described in
+\autoref{sec:trans:b:vex}. Unlike the previous case it is not necessary to
+transform all calls which can throw an exception, it is sufficient to transform
+calls which can happen after some local variable declaration (that is value of
+`alloca` instruction can reach the `call` or `invoke` instruction). After this
+transformation a cleanup code is added before every exit from the function.
+However, in order for the cleanup code to work, it needs to be able to access all local
+variables which can be defined before the associated function exit, that is results of all
+`alloca` instructions from which this exit can be reached. This might
+not be always true, for example if local variable is allocated in only one
+branch:[^allocabranch]
 
-In presence of exception handling, the situation is more complicated. Since we
-target C++ and allow programs with exception we will now focus on this case,
-through the lens of \llvm representation of exception handling (for details on
-\llvm exception handling see \autoref{sec:llvm:eh}.
-
-Here we need to make sure that cleanup runs not only in the case of normal exit
-from a function by the means of return instruction, but also when the function
-is exited by stack unwinding, that is while exception is being propagated.
-Furthermore, we need to make sure our cleanup handling does not interfere with
-already present exception handling in the function, should there be any. This
-can be done in two phases --- it is necessary to convert any calls of functions
-which can throw an exception so that any exception can be caught (and re-thrown
-if it was not handled originally), and then a cleanup code needs to be added
-into appropriate location in the exception handling path and normal function
-exit path.
-
-## Adding Exception Handling Cleanup
-
-The exception handling, which begins in the landing block, can perform two
-types of action --- it can either perform cleanup and re-throw the exception
-(using `resume` instruction), or catch the exception (using language-dependent
-mechanism), and resume normal operation. It can also do combination of these
-actions based on the type of the exception. However, it is not necessary to
-analyze the exception handling mechanism in the function, instead it is
-sufficient to add cleanup code just before any `resume` and `return`
-instruction, such that this code will clean all local variables which can reach
-this function termination.
-
-In order for the cleanup code to work, it needs to be able to access all local
-variables define before the associated function exit, that is results of all
-`alloca` instructions from which this exit can be reached. However, this might
-not be always true:
-
-```
+```{.llvm}
 entry:
   %x = alloca i32, align 4
   store i32 1, i32* %x, align 4
@@ -243,33 +270,57 @@ if.end:  ; preds = %if.then, %entry
   ret i32 0
 ```
 
+[^allocabranch]: While Clang usually moves all `alloca` instructions into the
+first block of the function, the example is still a valid \llvm bitcode, and
+therefore should be handled properly.
+
 In this example, `%y` is defined in `if.then` basic block, but it needs to be
 cleared just before the `return` instruction at the end of `if.end` basic block,
 and the definition of `%y` does not dominate the cleaning point. The cleanup
-cannot be, in general, safely inserted after last use \TODO{zdůvodnit --
-nerozhodnutelné}. For this reason we will first insert $\varphi$-nodes in such a
-way that any `alloca` is represented in any block which it can reach --- either
-by its value if the control did pass the `alloca` instruction, or by `null`
-constant if the control did not pass it. For our example the result of the
-modification would be the following (just last basic block is modified):
+cannot be, in general, inserted after the last use of given local variable as
+the variable's address can escape scope of the function and even the thread in
+which it was created and therefore it is not decidable when its scope ends.
+Nevertheless it is safe to insert cleanup just before the function exits as the
+variable will cease to exists when the function exits, that is immediately after
+the cleanup.
 
-```
+To make all local variables which can reach exit point of a function accessible
+at this exit point we will first insert $\varphi$-nodes in such a way that any
+`alloca` is represented in any block which it can reach --- either by its value
+if the control did pass the `alloca` instruction (the local variable is defined
+at this point), or by `null` constant if the control did not pass it. For our
+example the result of the modification would be the following (just last basic
+block is modified):
+
+```{.llvm}
 if.end:  ; preds = %if.then, %entry
   %y.phi = phi i32* [ null, %entry ], [ %y, %if.then ];
-  ; cleanup will be inserted here
+  ; cleanup will be inserted here, it will access %y.phi
   ret i32 0
 ```
 
 In this example, `%y.phi` represents `%y` at the cleanup point --- it can be
 either equal to `%y` if control passed through definition of `%y`, or `null`
 otherwise.
-\TODO{pozorvonání z jiného vlákna -> přidává běhy, ale o žádné nepříjde}
 
+While this transformation changes the set of runs of the program all the runs in
+the original program have equivalent (from the point of safety and stuttering-free
+\ltl properties) runs transformed programs --- the only difference is that there
+can be some intermediate states in the transformed program's runs.
 
-\TODO{Those phi nodes can be added by simple algorithm which traverses BBs in
-DFS order…}
+### Implementation
 
-# New Interface for Atomic Sections
+To calculate which `alloca` instructions can reach given function exit point a
+version of standard reaching definitions analysis is used. Using this analysis
+we compute which `alloca` instruction values reach end of each basic block of
+the function, and for every such value which does not dominate the end of the
+basic block a $\varphi$-node is inserted. For each basic block the algorithm
+also keeps track of which value represents the particular `alloca` instruction
+in this basic block (it can be either the `alloca` itself, or a `phi`
+instruction) The transformation is done by function `addAllocaCleanups` which is
+defined in `lart/support/cleanup.h`.
+
+# New Interface for Atomic Sections \label{sec:trans:atomic}
 
 The interface for declaring atomic sections in verified code (described in
 \autoref{sec:divine:llvm:mask}) is hard to use, the main reason being that while
@@ -328,7 +379,7 @@ while the annotations are designed to be usable by users of \divine.
 The C++ interface is RAII-based[^raii], it works similar to C++11 `unique_lock`
 with recursive mutexes --- an atomic section begins by construction of an object
 of type `divine::InterruptMask` and is left either by call of `release` method
-on this object, or by in the destructor of the `InterruptMask` object. If atomic
+on this object, or by the destructor of the `InterruptMask` object. If atomic
 sections are nested, only the `release` on the object which started the atomic
 section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
 example.
@@ -340,7 +391,7 @@ example.
 void doSomething( int *ptr, int val ) {
     divine::InterruptMask mask;
     *ptr += val;
-    // relea the mask only if no mask higher on stack:
+    // release the mask only if 'mask' object owns it:
     mask.release();
     // masked only if caller of doSomething was masked:
     foo( ptr );
@@ -350,6 +401,7 @@ int main() {
     int x = 0;                    // not masked
     divine::InterruptMask mask;
     doSomething( &x );            // maksed
+    x = 1;                        // still masked
     // mask ends automatically at the end of main
 }
 ```
@@ -364,9 +416,12 @@ which a resource is allocated inside object and safely deallocated when that
 object exits scope, usually at the end of function. \TODO{odkaz, citace?}
 
 The annotation interface is based on \lart transformation pass and annotations
-which can be used to mark functions atomic. This way, entire functions can
+which can be used to mark entire functions atomic. This way, the function can
 be marked atomic by adding `__lart_atomic_function` to their header, see
-\autoref{fig:ex:atomic:lart} for an example.
+\autoref{fig:ex:atomic:lart} for an example. While this is safer way to use
+atomic sections than explicitly using `__divine_interrupt_mask`, it is still
+necessary that the atomic function always terminates (e.g. does not contain
+infinite cycle).
 
 \begFigure[tp]
 ```{.cpp}
@@ -386,36 +441,40 @@ inside another function annotated as atomic.
 \label{fig:ex:atomic:lart}
 \endFigure
 
-
 ### Implementation of Annotation Interface
 
 Atomic sections using annotations are implemented in two phases --- first the
 function is annotated with `__lart_atomic_function` which is in fact macro
 which expands to GCC/Clang attributes `annotate("lart.interrupt.masked")` and
-`noinline`, the first one is used so that the annotated function can be
+`noinline`; the first one is used so that the annotated function can be
 identified in \llvm, the second makes sure the function will not be inlined (if
 it would be inlined it would not be possible to identify it in the bitcode).
 
 Second phase is \lart pass which actually adds atomic sections into annotated
-functions. For each function which is annotated with `lart.interrupt.masked` it
-adds call to `__divine_interrupt_mask` at the beginning of the function, and
-call to `__divine_interrupt_unmask` before any exit point of the function (exit
-point is either `ret` or `resume` instruction, that is either normal exit, or
-exception propagation). The call to `__divine_interrupt_unmask` is conditional,
-it is only called if `__divine_interrupt_mask` returned 0 (that is, atomic
-section begun by this call).
+functions, this pass is implemented by class `Mask` in
+`lart/reduction/interrupt.cpp`.  For each function which is annotated with
+`lart.interrupt.masked` it adds call to `__divine_interrupt_mask` at the
+beginning of the function, and call to `__divine_interrupt_unmask` before any
+exit point of the function (exit point is either `ret` or `resume` instruction,
+that is either normal exit, or exception propagation). The call to
+`__divine_interrupt_unmask` is conditional, it is only called if
+`__divine_interrupt_mask` returned 0 (that is, atomic section begun by this
+call).
 
 However, since the transformed program can use exceptions, and it is desirable
 that mask is exited every time the annotated function is left (not just during
 normal execution), it is necessary to first make all exceptions visible, and
 then perform the aforementioned transformation. To make exceptions visible we
-use the transformation outlined in \autoref{sec:trans:b:ehv}, which
+use the transformation outlined in \autoref{sec:trans:b:vex}, which
 makes sure any exception which would otherwise propagate through the transformed
-function without stopping will be intercepted by landing block and immediatelly
+function without stopping will be intercepted by landing block and immediately
 resumed. After this transformation it is sufficient to end atomic section before
 any exit from the function, since no exception can fall through without being
 intercepted.
 
+This \lart pass was integrated into build of program using `divine compile`
+command and therefore it is not necessary to run \lart manually to make atomic
+sections work.
 
 # Weak Memory Models
 
