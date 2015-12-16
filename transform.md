@@ -476,48 +476,139 @@ This \lart pass was integrated into build of program using `divine compile`
 command and therefore it is not necessary to run \lart manually to make atomic
 sections work.
 
+
+
 # Weak Memory Models
 
-In modern CPUs, the write to memory location need not be immediately visible in
+In modern CPUs, a write to memory location need not be immediately visible in
 other threads, for example due to caches or out-of-order execution. However most
 of the verification tools, including \divine, do not directly support
 verification with these relaxed memory models, instead they assume *sequential
 consistency*, that is immediate visibility of any write to memory.
 
-In \cite{SRB15}, adding weak memory model simulation using \llvm-to-\llvm
-transformation was proposed. In this section we will describe details of the
-implementation of this transformation, as well as its extension which allows
-verification of full range of properties supported by \divine, most notably
-memory safety, which was not possible in original version of the transformation.
-We also show that, while the extension for $\tau+$ reduction proposed in
-\cite{SRB15} is indeed correct for TSO, it is not correct for PSO, and we
-propose alternative method which can partially resolve this problem.
+In \cite{SRB15} it was proposed to add weak memory model simulation using
+\llvm-to-\llvm transformation. In this section we will extended version of this
+transformation which allows verification of full range of properties supported
+by \divine (the original version was not usable for verification of memory
+safety). Furthermore this extended version supports wider range of memory models
+and the memory model to be used can be specified by user of the transformation.
+We also show how to decrease state space size of compared to the original
+version and evaluate the final transformation on several models.
 
-## Total Store Order
+## Theoretical Memory Models
 
-Since the memory models implemented in hardware differ with CPU vendors, or
-even particular models of CPUs, it would not be practical and feasible to verify
-programs with regard to particular implementation of real-world memory model. For this reason
-several theoretical memory models were proposed, namely *Total Store Order*
-(TSO) \cite{SPARC94}, *Partial Store Order* (PSO) \cite{SPARC94}. 
-\TODO{přepsat konec odstavce:} In those theoretical models, an
+Since the memory models implemented in hardware differ with CPU vendors, or even
+particular models of CPUs, it would not be practical and feasible to verify
+programs with regard to a particular implementation of real-world memory model.
+For this reason several theoretical memory models were proposed, namely *Total
+Store Order* (TSO) \cite{SPARC94}, *Partial Store Order* (PSO) \cite{SPARC94}.
+These memory models are usually described as constraints to allowed reordering
+of instructions which manipulate with memory.  In those theoretical models, an
 update may be deferred for an infinite amount of time. Therefore, even a finite
 state program that is instrumented with a possibly infinite delay of an update
 may exhibit an infinite state space. It has been proven that for such an
 instrumented program, the problem of reachability of a particular system
-configuration is decidable, but the problem of repeated reachability of a
-given system configuration is not \cite{Atig:2010:VPW:1706299.1706303}.
+configuration is decidable, but the problem of repeated reachability of a given
+system configuration is not \cite{Atig:2010:VPW:1706299.1706303}.
 
-In Total Store Order memory model, any write can be delayed infinitely but the
-order in which writes done by one thread become visible in other threads must
-match the order of writes in the thread which executed them. This memory model
-can be simulated by store buffer --- any write is first done into a
-thread-private buffer so it is invisible for other threads, this buffer keeps
-writes in FIFO order. The buffer can later be nondeterministically flushed,
-that is oldest entry from the buffer can be written to memory. Furthermore, any
-reads have to first look into store buffer of their thread for newer value of
-memory location, only if there is none they can look into memory. See
-\autoref{fig:extend:wm:sb} for an example of store buffer working.
+In Total Store Order memory model (which was used as basis for \cite{SRB15}),
+any write can be delayed infinitely but the order in which writes done by one
+thread become visible in other threads must match the order of writes in the
+thread which executed them. This memory model can be simulated by store buffer
+--- any write is first done into a thread-private buffer so it is invisible for
+other threads, this buffer keeps writes in FIFO order. The buffer can later be
+nondeterministically flushed, that is oldest entry from the buffer can be
+written to memory. Furthermore, any reads have to first look into store buffer
+of their thread for newer value of memory location, only if there is none they
+can look into memory. See \autoref{fig:trans:wm:sb} for an example of store
+buffer working.
+
+\begFigure[tp]
+
+```{.cpp}
+int x = 0, y = 0;
+```
+\begSplit
+
+```{.cpp}
+void thread0() {
+  y = 1;
+  cout << "x = " << x << endl;
+}
+```
+
+\Split
+
+```{.cpp}
+void thread1() {
+  x = 1;
+  cout << "y = " << y << endl;
+}
+```
+
+\endSplit
+
+\begin{center}
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{0x04}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{0x08}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{x = 0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{y = 0}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) -- (-4, -4) -- (-4,-5) -- (-10,-5) -- (-10,-4);
+  \draw [-] (0,-4) -- (6, -4) -- (6,-5) -- (0,-5) -- (0,-4);
+  \draw [-] (-8,-4) -- (-8,-5);
+  \draw [-] (-6,-4) -- (-6,-5);
+  \draw [-] (2,-4) -- (2,-5);
+  \draw [-] (4,-4) -- (4,-5);
+
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{0x08}};
+  \node () [anchor=west] at (-8,-4.5)  {\texttt{1}};
+  \node () [anchor=west] at (-6,-4.5)  {\texttt{32}};
+
+  \node () [anchor=west] at (0,-4.5)  {\texttt{0x04}};
+  \node () [anchor=west] at (2,-4.5)  {\texttt{1}};
+  \node () [anchor=west] at (4,-4.5)  {\texttt{32}};
+
+  \node () [] at (-4, 0.5) {thread 0};
+  \draw [->] (-4,0) -- (-4,-2);
+  \node () [anchor=west] at (-3.5, -0.5) {\texttt{store y 1;}};
+  \node () [anchor=west] at (-3.5, -1.5) {\texttt{load x;}};
+
+  \node () [] at (2, 0.5) {thread 1};
+  \draw [->] (2,0) -- (2,-2);
+  \node () [anchor=west] at (2.5, -0.5) {\texttt{store x 1;}};
+  \node () [anchor=west] at (2.5, -1.5) {\texttt{load y;}};
+
+  \draw [->, dashed] (-0.5,-0.5) to[in=0, out=0] (-4,-4.5);
+  \draw [->, dashed] (-9,-2) to[in=0, out=-90, out looseness=0.7] (-1.3,-1.5);
+  \draw [->, dashed] (5.5,-0.5) to[in=0, out=0] (6,-4.5);
+  \draw [->, dashed] (-7,-2) to[in=0, out=-90, out looseness=0.5] (4.7,-1.5);
+
+\end{tikzpicture}
+\end{center}
+
+\caption{In this example, each of the threads first writes into a global variable
+  and later reads the variable written by the other thread. Under sequential
+  consistency, the possible outcomes would be $x = 1, y = 1$; $x = 1, y = 0$; and $x
+  = 0, y = 1$, since at least one write must proceed before the first read
+  proceeds. However, under TSO $x = 0, y = 0$ is also possible: this corresponds
+  to the reordering of the load on line 3 before the independent store on line
+  2, and can be simulated by performing the store on line 2 into a store
+  buffer. The diagram shows (shortened) execution of the listed code. Dashed
+  lines represent where given value is read from/stored to.}
+\label{fig:trans:wm:sb}
+\endFigure
 
 The transformation presented in \cite{SRB15} implements under-approximation of
 TSO using bounded store buffer. In this case the buffer size is limited and if
@@ -526,6 +617,20 @@ buffer is flushed into memory. With this limited store buffer the
 transformation can be reasonably implemented, and the resulting state space is
 finite if the state space of the original program was finite, therefore this
 transformation is suitable for explicit state model checking.
+
+The main limitation of the version proposed in \cite{SRB15} is that it does not
+fully support \llvm atomic instructions with other that sequential consistency
+ordering and it supports only TSO ordering. On the other hand the extended
+version proposed in this work does support all atomic ordering supported by
+\llvm and it does not implement TSO, instead it simulates memory model of \llvm
+and allows specification of which guarantees should be added to this memory
+model. In this way the transformation can be parametrized to approximate larger
+range of memory models. Please refer to \autoref{sec:llvm:atomic} for details
+about \llvm memory model.
+
+## Representation of \llvm Memory Model Using Store Buffers
+
+
 
 ## Implementation
 
