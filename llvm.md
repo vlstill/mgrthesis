@@ -18,16 +18,16 @@ often used both for the complete infrastructure as well as for \llvm IR.
 
 \llvm IR can be represented in three ways --- a human readable assembly (`.ll`
 file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects
-which can be manipulated by \llvm libraries and read-from and serialized-to both
+which can be manipulated by \llvm libraries and read from and serialized to both
 other forms.
 
 
 # \llvm IR basics
 
 \llvm IR human-readable representation is similar to assembly languages,
-but it is typed and more verbose. In this section we will shortly describe
-relevant part of this human-readable \llvm representation as well as basic
-structure of \llvm IR. Through whole work we will use `typewriter-style font` to
+but it is typed and more verbose. In this section, we will shortly describe
+relevant part of this human-readable \llvm representation as well as a basic
+structure of \llvm IR. Through whole work, we will use `typewriter-style font` to
 denote a fragment of code in some programming language, notably in \llvm IR or
 C++. We will also use the same font for instruction and function names.
 
@@ -38,14 +38,14 @@ can be either named or unnamed, unnamed identifiers are represented using
 unsigned value.
 
 \llvm programs consist of *modules* --- a module represents compilation unit of
-the input program, or result of \llvm linker. Modules contain functions, global
+the input program or a result of the \llvm linker. Modules contain functions, global
 variables, symbol table entries, and metadata.
 
 A function contains, apart from its header (which defines name, number and type
 of parameters and function attributes), a body which consists of *basic blocks*.
 Basic block is a continuous sequence of instruction with no branching inside,
 terminated by so called *terminator* instruction --- an instruction which
-transfers control flow to another basic block (branching instruction) or exists
+transfers control flow to another basic block (branching instruction) or exits
 the function (in the case of `ret` and `resume`). Values in a function are held
 in *registers* which are in SSA form (they are assigned only once, at their
 declaration) and there is unlimited number of them.
@@ -62,7 +62,7 @@ found in \autoref{sec:llvm:atomic}.
 Since \llvm registers are in SSA form and their address cannot be taken they are
 not suitable for representation of local variables. To represent these variables
 \llvm uses `alloca` instruction --- this instruction takes a size and returns
-pointer to memory location of given size which will be automatically freed on
+a pointer to a memory location of given size which will be automatically freed on
 function exit. Usually `alloca` is implemented using stack when \llvm is
 compiled to runnable binary.
 
@@ -74,17 +74,18 @@ of basic block.
 # \llvm Compilation Process
 
 \llvm itself is not a complete compiler --- it lacks support for translation
-from higher-level programming language into \llvm IR. This translation is a role
+from a higher-level programming language into \llvm IR. This translation is a role
 for *frontend* such as Clang, which is C/C++/Objective-C compiler released
 together with \llvm, or DragonEgg which integrates \llvm with GCC parsers and
 allows processing of Ada, Fortran, and other.
 
-After the frontend generates \llvm IR, \llvm can be used to run optimizations on
-this IR. These optimizations are organized into *passes*, each of the passes
+After the frontend generates \llvm IR, \llvm can be used to run optimizations
+on this IR. These optimizations are organized into *passes*, each of the passes
 performs single optimization or code analysis task, such as constant
-propagation, or inlining. \llvm passes are usually run directly by the compiler
-but they can be also executed on serialized \llvm IR using `opt` binary which
-comes with \llvm. Optimization passes are written in C++ using \llvm libraries.
+propagation, or inlining. \llvm passes are usually run directly by the
+compiler, but they can be also executed on serialized \llvm IR using `opt`
+binary which comes with \llvm. Optimization passes are written in C++ using
+\llvm libraries.
 
 Finally, the optimized IR has to be translated into a platform-specific
 assembler. This is done by a code generator, which is part of \llvm. \llvm comes
@@ -97,7 +98,7 @@ other platforms.
 
 Exception handling in \llvm \cite{llvm:except} is based on Itanium ABI zero-cost
 exception handling. This means that exception handling does not incur any
-overhead such as checkpoint creation when entering `try` blocks. Instead all the
+overhead such as checkpoint creation when entering `try` blocks. Instead, all the
 work is done at the time exception is thrown, that is exception handling is
 zero-cost until the exception is actually used.
 
@@ -123,13 +124,13 @@ has three exception-handling-related instructions: `invoke`, `landingpad`, and
     instruction will be referred to as *landing block*.[^lblp]
 
     The `landingpad` instruction specifies which exception it can catch --- it
-    can be have multiple *clauses* and each clause is either `catch` clause,
-    meaing the `landingpad` should be used for exceptions of type this clause
+    can have multiple *clauses* and each clause is either `catch` clause,
+    meaning the `landingpad` should be used for exceptions of type this clause
     specifies, or `filter` clause --- in this case `landingpad` should be
     entered if the type of exception does not match any of the types in the
     clause. The type of the exception is determined dynamically, that is the
-    clauses contain run time type information objects. Furthermore, the
-    `landingpad` can be denoted as `cleanup`, meaning it shlould be entered
+    clauses contain runtime type information objects. Furthermore, the
+    `landingpad` can be denoted as `cleanup`, meaning it should be entered
     even if no matching clause is found.
 
     As the matching clause is determined at the runtime the code in landing
@@ -137,7 +138,7 @@ has three exception-handling-related instructions: `invoke`, `landingpad`, and
     `cleanup` flag) fired. For this reason the return value of `landingpad`
     instruction is determined using a *personality function* --- a
     language-specific function which is called when throwing the exception or
-    by the stack unwinder. For C++ and Clang the personality function is
+    by the stack unwinder. For C++ and Clang, the personality function is
     `__gxx_personality_v0` and it returns pointer to the exception and integral
     selector which uniquely determines which catch block of the original C++
     code should fire.
@@ -147,10 +148,10 @@ has three exception-handling-related instructions: `invoke`, `landingpad`, and
 ~   instruction works similar to `call` instruction, it can be used to
     call function in such a way that if it throws an exception this exception
     will be handled by dedicated basic block. Unlike `call`, `invoke` is a
-    terminator instruction --- it has to be last in basic block. Apart from
+    terminator instruction --- it has to be last in the basic block. Apart from
     function to call and its parameters it also takes two basic block labels,
     one to be used when the function return normally and one to be used on
-    exception propagation, the second one must be label of landing block.
+    exception propagation, the second one must be a label of a landing block.
 
 `resume`
 
@@ -165,9 +166,9 @@ contains this instruction.
 
 It is important to note that \llvm does not have any instruction for throwing
 of exceptions, this is left to the frontend to be done in language-dependent
-way. In C++ throwing is done by call to `__cxa_throw` which will initiate the
+way. In C++ throwing is done by a call to `__cxa_throw` which will initiate the
 stack unwinding in cooperation with the unwinder library. Similarly, allocation
-and catching of the exception is left to be provided by the frontend.
+and catching of the exception are left to be provided by the frontend.
 
 # Atomic Instructions
 
@@ -175,7 +176,7 @@ and catching of the exception is left to be provided by the frontend.
 
 \llvm has support for atomic instructions with well-defined behavior in
 multi-threaded programs \cite{llvm:atomics}. \llvm's atomic instructions are
-build so that they can provide functionality required by C++11 atomic operation
+build so that they can provide the functionality required by C++11 atomic operation
 library, as well as Java volatile. Apart from atomic versions of `load` and
 `store` instructions \llvm supports three atomic instructions --- `atomicrmw`
 (atomic read-modify-write) and `cmpxchg` (atomic compare-and-exchange, also
@@ -193,10 +194,10 @@ increasing strength). These atomic ordering are described by memory model of
 \llvm{}.[^memmodel]
 
 In order to describe aforementioned atomic orderings, we first need to define
-*happens-before* partial order of operations of concurrent program.
+*happens-before* partial order of operations of a concurrent program.
 Happens-before is least partial order that is superset of single-thread
 execution order, and when *a* *synchronizes-with* *b* it includes edge from *a*
-to *b*. Synchronizes-with edges are introduces by platform-specific ways,[^sync]
+to *b*. Synchronizes-with edges are introduced by platform-specific ways,[^sync]
 and by atomic instructions.
 
 [^memmodel]: Chapter *Memory Model for Concurrent Operation* of
@@ -208,13 +209,13 @@ Unordered
 
 ~   can be used only for `load` and `store` instructions and does not guarantee
     any synchronization but it guarantees that the load or store itself will be
-    atomic --- it cannot be split into two or more instructions or
+    atomic --- it cannot be splited into two or more instructions or
     otherwise changed in a way that load would result in value different from
     all written previously to the same memory location. This memory ordering is
     used for non-atomic loads and stores in Java and other programming languages
     in which data races are not allowed to have undefined behaviour.[^cpprace]
 
-Monontonic
+Monotonic
 
 ~   corresponds to `memory_order_relaxed` in C++11 standard. In addition to
     guarantees given by unordered, it guarantees that a total ordering consistent
@@ -223,18 +224,18 @@ Monontonic
 
 Acquire
 
-~   corresponds to `memory_order_acquire` in C++11. In addition to guarantess of
-    monotonic, a read operation flagged as acquire creates synchronizes-with
-    edge with a write operation which created the value if this write operation
-    was flagged as release. Acquire is memory ordering strong enought to
-    implement lock acquire.
+~   corresponds to `memory_order_acquire` in C++11. In addition to the
+    guarantees of monotonic ordering, a read operation flagged as acquire
+    creates synchronizes-with edge with a write operation which created the
+    value if this write operation was flagged as release. Acquire is memory
+    ordering strong enough to implement lock acquire.
 
 Release
 
-~   corresponds to `memory_order_release` in C++11. In addition to guarantess of
-    monotonic, it can create synchronizes-with edge with corresponding acquire
-    operation. Release is memory ordering storng enoght to implement lock
-    release.
+~   corresponds to `memory_order_release` in C++11. In addition to the
+    guarantees of monotonic ordering, it can create synchronizes-with edge with
+    corresponding acquire operation. Release is memory ordering strong enough
+    to implement lock release.
 
 Acquire-Release
 
@@ -245,7 +246,7 @@ Sequentially Consistent
 
 ~   corresponds to `memory_order_seq_cst` which is default for `atomic`
     operations in C++. In addition to guarantees given by acquire-release it
-    guaratees that there is a global total order of all sequentially-consistent
+    guarantees that there is a global total order of all sequentially-consistent
     operations on all memory locations which is consistent with happens-before
     partial order and with modification order of all the affected memory
     locations.
@@ -299,13 +300,13 @@ written by the \texttt{store}) as the \texttt{store} is not release or stronger.
 
 \bigskip
 Unlike aforementioned atomic instructions the `fence` instruction is not bound
-to a specific memory location. Instead it establishes memory synchronization
+to a specific memory location. Instead, it establishes memory synchronization
 between non-atomic and monotonic atomic accesses. The synchronization is
-established if there exists a pair of fence instructions *R* and *A* where *R*
+established if there exists a pair of `fence` instructions *R* and *A* where *R*
 is `release` fence and *A* is `acquire` fence, and an atomic object *M* which is
 modified by instruction *S* (with at least `monotonic` ordering) after *R* and
 read by instruction *L* (with at least `monotonic` ordering) before *A*. In this
-case there is happens-before edge from *R* to *A*. Now if the read *L* of *M*
+case, there is happens-before edge from *R* to *A*. Now if the read *L* of *M*
 observes the value written by write *S* this implies that all (atomic or not)
 writes which happen-before the fence *R* also happen-before the fence *A*. An
 illustration how this can be used to implement spin-lock can be found in
@@ -359,8 +360,8 @@ while.end:
 ```
 
 \begCaption
-An example of use of `fence` instruction. The `release` fence (line 6 in C++, 4
-in \llvm) synchronizes with the `acquire` fence (line 12 in C++, 19 in \llvm)
+An example of a use of `fence` instruction. The `release` fence (line 6 in C++,
+4 in \llvm) synchronizes with the `acquire` fence (line 12 in C++, 19 in \llvm)
 because there exists an atomic object `flag` and an operation which modifies it
 with `monotonic` ordering (lines 7, 5) after the `release` fence, and reads it,
 again with `monotonic` ordering (lines 11, 14), before the `acquire` fence.
