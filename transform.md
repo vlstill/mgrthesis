@@ -1,18 +1,18 @@
-In this chapter we will propose \llvm transformations which aim at improving
+In this chapter, we will propose \llvm transformations which aim at improving
 model checking capabilities. All the proposed transformations were
-implemented in \lart and will be release together with the next release of
+implemented in \lart and will be released together with the next release of
 \divine.
 
 # Analyses and Transformation Building Blocks
 
-Many tasks done in \llvm transformations are common and therefore should be
+Many tasks done in \llvm transformations are common and, therefore, should be
 provided as separate and reusable analyses or transformation building blocks, so
 that they can be ready to use when required and it is not necessary to implement
 them ad-hoc every time. In some cases (for example dominator tree and domination
-relation) analyses are provided in \llvm library, and \llvm also provides
+relation) analyses are provided in the \llvm library, and \llvm also provides
 useful utilities for instruction and basic block manipulation, such as basic
-block splitting and instruction insertion. In other cases it is useful to add
-to this set of primitives, for this reason \lart was extended to include several
+block splitting and instruction insertion. In other cases, it is useful to add
+to this set of primitives, for this reason, \lart was extended to include several
 such utilities.
 
 ## Fast Instruction Reachability \label{sec:trans:b:reach}
@@ -20,8 +20,8 @@ such utilities.
 While \llvm has support to check whether value of one instruction might reach
 other instruction (using `isPotentiallyReachable` function) this function is
 slow if many-to-many reachability is to be calculated (this function's time
-complexity is linear with respect to the number of basic blocks in control flow
-graph of the function).  For this reason we introduce analysis which
+complexity is linear with respect to the number of basic blocks in the control flow
+graph of the function).  For this reason, we introduce analysis which
 pre-calculates reachability relation between all instructions and allows fast
 querying, this analysis can be found in `lart/analysis/bbreach.h`.
 
@@ -47,8 +47,8 @@ closure of SCC reachability is calculated \TODO{algorithm?}.
 
 The theoretical time complexity of this algorithm is linear in the size of the
 control flow graph of the function (which is in the worst case
-$\mathcal{O}(n^2)$ where $n$ is number of basic blocks). In practice associative
-maps are used in several parts of the algorithm resulting in worst case
+$\mathcal{O}(n^2)$ where $n$ is the number of basic blocks). In practice associative
+maps are used in several parts of the algorithm resulting in the worst case
 time complexity in $\mathcal{O}(n^2 \cdot \log n)$ for transitive closure
 calculation and $\mathcal{O}(\log n)$ for retrieval of the information whether
 one block reaches another. However, since in practice control flow graphs 
@@ -56,9 +56,9 @@ are sparse,[^sparsecfg] the expected time complexity is $\mathcal{O}(n \log n)$
 for transitive closure.
 
 [^sparsecfg]: The argumentation is that all terminator instructions other that
-`switch` have at most two successors and `switch` is rare, for this reason the
+`switch` have at most two successors and `switch` is rare, for this reason, the
 average number of edges in control flow graph with $n$ vertices is expected to
-be less then $2n$.
+be less than $2n$.
 
 
 ## Exception Visibility \label{sec:trans:b:vex}
@@ -66,17 +66,17 @@ be less then $2n$.
 Often \llvm is transformed in a way which requires that certain cleanup action
 is performed right before a function exits, one such example would be unlocking
 atomic section, used in \autoref{sec:trans:atomic}. Implementing this for
-languages without non-local control flow transfer other then with `call` and
-`ret` instructions, for example standard C, would be fairly straight-forward ---
+languages without non-local control flow transfer other than with `call` and
+`ret` instructions, for example standard C, would be fairly straightforward ---
 it is sufficient to run the cleanup just before the function returns. However,
 while pure standard-compliant C has no non-local control transfer, in POSIX
 there are `setjmp` and `longjmp` functions which allow non-local jumps and, even
 more importantly, C++ has exceptions already in its standard. Since `longjmp`
 and `setjmp` are not supported in \divine we will assume they will not be used
 in the transformed program. On the other hand, exceptions are supported by
-\divine and therefore should be taken into account.
+\divine and, therefore, should be taken into account.
 
-In the presence of exceptions (but without `longjmp`) function can be exited in
+In the presence of exceptions (but without `longjmp`), function can be exited in
 the following ways:
 
 *   by `ret` instruction;
@@ -84,27 +84,27 @@ the following ways:
     earlier intercepted by `landingpad`;
 *   when exception causes unwinding, but the active instruction through which
     the exception is propagating is `call` and not `invoke`, or it is `invoke`
-    but the associated `landingpad` does not catch exception of given type ---
-    in this case the frame of the function is unwound and the exception is not
+    but the associated `landingpad` does not catch exceptions of given type ---
+    in this case, the frame of the function is unwound and the exception is not
     intercepted.
 
 The latest case happens often in C++ functions which do not require any
-destructors to be run at function, in those cases Clang usually generates `call`
+destructors to be run at the end of the function, in those cases Clang usually generates `call`
 instead of `invoke` even if the callee can throw an exception as it is not
 necessary to intercept the exception in the caller. Also, if the function
 contains `try` block Clang will generate `invoke` but since there is not need to
 run destructors the corresponding `landingpad` will not intercept exceptions
-which are not catched by `catch` block.  The problem with the latest case is
+which are not caught by `catch` block.  The problem with the latest case is
 that the function exit is implicit, at any `call` instruction which can throw or
 at `invoke` with `landingpad` without `cleanup` flag.
 
-In order to make it possible to add code at the end of function it is therefore
-necessary to eliminate this implicit way of exiting function without
-intercepting the exception and the transformation must be performed in such a
+In order to make it possible to add code at the end of the function, it is therefore
+necessary to eliminate this implicit form of function exit without
+interception of the exception, and the transformation must be performed in such a
 way that it does not interfere with exception handling which was already present
 in the transformed function.
 
-Therefore we need to transform any call in such a way that if the called
+Therefore, we need to transform any call in such a way that if the called
 function can throw an exception it is always called by `invoke`, and all the
 `langingpad` instruction have `cleanup` flag. Furthermore, this transformation
 must not change observable behaviour of the program --- if the exception would
@@ -169,7 +169,7 @@ int main() {
 ```
 
 An example of simple C++ program which demonstrates use of exceptions, the
-exception is thrown by `foo`, goes through `bar` and is catched in `main`.
+exception is thrown by `foo`, goes through `bar` and is caught in `main`.
 
 ```{.llvm}
 define void @_Z3barv() #0 {
@@ -199,7 +199,7 @@ fin:
 ```
 
 A transformed version of `bar` function in which the exception is intercepted
-and therefore visible in this function, but it is immediately resumed. A cleanup
+and, therefore, visible in this function, but it is immediately resumed. A cleanup
 code would be inserted just before line 8. The original basic block `entry` was
 split into `entry` and `fin` and the `call` instruction was replaced with
 `invoke` which transfers control to the `lpad` label if any exception is thrown
@@ -211,8 +211,8 @@ exception.
 \label{fig:transform:b:vex:example}
 \endFigure
 
-After the call instrumentation the following holds: every time the function is
-entered by stack unwinding due to active exception, the control is transfered to
+After the call instrumentation, the following holds: every time the function is
+entered by stack unwinding due to an active exception, the control is transfered to
 a landing block and, if before this transformation the exception would not be
 intercepted by `landingpad` in this function, after the transformation 
 the same exception would be rethrown by `resume`.
@@ -237,13 +237,13 @@ often necessary to perform cleaning operation at the end of the scope of these
 variables. One of these cases is mentioned in \autoref{sec:extend:wm:invstore},
 another can arise from compiled-in abstractions proposed in \cite{RockaiPhD}.
 These variable cleanups are essentially akin to C++ destructors in a sense that
-they get executed at the end of scope of the variable, no matter how this
-happens, with only exception of thread termination.
+they get executed at the end of the scope of the variable, no matter how this
+happens, with the only exception of thread termination.
 
 The local variable cleanup builds on top of function cleanups described in
-\autoref{sec:trans:b:vex}. Unlike the previous case it is not necessary to
+\autoref{sec:trans:b:vex}. Unlike the previous case, it is not necessary to
 transform all calls which can throw an exception, it is sufficient to transform
-calls which can happen after some local variable declaration (that is value of
+calls which can happen after some local variable declaration (that is a value of
 `alloca` instruction can reach the `call` or `invoke` instruction). After this
 transformation a cleanup code is added before every exit from the function.
 However, in order for the cleanup code to work, it needs to be able to access all local
@@ -278,14 +278,14 @@ In this example, `%y` is defined in `if.then` basic block, but it needs to be
 cleared just before the `return` instruction at the end of `if.end` basic block,
 and the definition of `%y` does not dominate the cleaning point. The cleanup
 cannot be, in general, inserted after the last use of given local variable as
-the variable's address can escape scope of the function and even the thread in
-which it was created and therefore it is not decidable when its scope ends.
+the variable's address can escape the scope of the function and even the thread in
+which it was created and, therefore, it is not decidable when its scope ends.
 Nevertheless it is safe to insert cleanup just before the function exits as the
 variable will cease to exists when the function exits, that is immediately after
 the cleanup.
 
 To make all local variables which can reach exit point of a function accessible
-at this exit point we will first insert $\varphi$-nodes in such a way that any
+at this exit point, we will first insert $\varphi$-nodes in such a way that any
 `alloca` is represented in any block which it can reach --- either by its value
 if the control did pass the `alloca` instruction (the local variable is defined
 at this point), or by `null` constant if the control did not pass it. For our
@@ -300,7 +300,7 @@ if.end:  ; preds = %if.then, %entry
 ```
 
 In this example, `%y.phi` represents `%y` at the cleanup point --- it can be
-either equal to `%y` if control passed through definition of `%y`, or `null`
+either equal to `%y` if control passed through a definition of `%y`, or `null`
 otherwise.
 
 While this transformation changes the set of runs of the program all the runs in
@@ -312,7 +312,7 @@ can be some intermediate states in the transformed program's runs.
 
 To calculate which `alloca` instructions can reach given function exit point a
 version of standard reaching definitions analysis is used. Using this analysis
-we compute which `alloca` instruction values reach end of each basic block of
+we compute which `alloca` instruction values reach the end of each basic block of
 the function, and for every such value which does not dominate the end of the
 basic block a $\varphi$-node is inserted. For each basic block the algorithm
 also keeps track of which value represents the particular `alloca` instruction
@@ -367,19 +367,19 @@ To alleviate aforementioned problems we reimplemented atomic sections in
 thread of execution is in atomic section, this flag is internal to the
 interpreter and need not be saved in the state --- indeed it would be always set
 to false in the state emitted by the generator because the state can never be
-emitted in the middle of atomic section. Furthermore, we modified
+emitted in the middle of an atomic section. Furthermore, we modified
 `__divine_interrupt_mask` to return `int` value corresponding to value of
 mask flag before it was set by this call to `__divine_interrupt_mask`.
 
-To make using new atomic sections easier we provide higher level interface for
+To make using new atomic sections easier we provide a higher level interface for
 atomic sections by the means of a C++ library and annotations. The C++ interface
 is intended to be used mostly by developers of language support for \divine,
 while the annotations are designed to be usable by users of \divine.
 
 The C++ interface is RAII-based[^raii], it works similar to C++11 `unique_lock`
 with recursive mutexes --- an atomic section begins by construction of an object
-of type `divine::InterruptMask` and is left either by call of `release` method
-on this object, or by the destructor of the `InterruptMask` object. If atomic
+of type `divine::InterruptMask` and is left either by a call of `release` method
+on this object or by the destructor of the `InterruptMask` object. If atomic
 sections are nested, only the `release` on the object which started the atomic
 section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
 example.
@@ -412,13 +412,13 @@ int main() {
 \endFigure
 
 [^raii]: Resource Acquisition Is Initialization, a common pattern in C++ in
-which a resource is allocated inside object and safely deallocated when that
-object exits scope, usually at the end of function. \TODO{odkaz, citace?}
+which a resource is allocated inside an object and safely deallocated when that
+object exits scope, usually at the end of a function in which it was declared. \TODO{odkaz, citace?}
 
 The annotation interface is based on \lart transformation pass and annotations
 which can be used to mark entire functions atomic. This way, the function can
 be marked atomic by adding `__lart_atomic_function` to their header, see
-\autoref{fig:ex:atomic:lart} for an example. While this is safer way to use
+\autoref{fig:ex:atomic:lart} for an example. While this is a safer way to use
 atomic sections than explicitly using `__divine_interrupt_mask`, it is still
 necessary that the atomic function always terminates (e.g. does not contain
 infinite cycle).
@@ -450,7 +450,7 @@ which expands to GCC/Clang attributes `annotate("lart.interrupt.masked")` and
 identified in \llvm, the second makes sure the function will not be inlined (if
 it would be inlined it would not be possible to identify it in the bitcode).
 
-Second phase is \lart pass which actually adds atomic sections into annotated
+The second phase is \lart pass which actually adds atomic sections into annotated
 functions, this pass is implemented by class `Mask` in
 `lart/reduction/interrupt.cpp`.  For each function which is annotated with
 `lart.interrupt.masked` it adds call to `__divine_interrupt_mask` at the
@@ -473,7 +473,7 @@ any exit from the function, since no exception can fall through without being
 intercepted.
 
 This \lart pass was integrated into build of program using `divine compile`
-command and therefore it is not necessary to run \lart manually to make atomic
+command and, therefore, it is not necessary to run \lart manually to make atomic
 sections work.
 
 
