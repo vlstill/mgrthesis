@@ -71,6 +71,8 @@ represented by `phi` instruction --- these are special instructions which merge
 values from different basic blocks. `phi` instructions must be at the beginning
 of basic block.
 
+\TODO{Metadata}
+
 # \llvm Compilation Process
 
 \llvm itself is not a complete compiler --- it lacks support for translation

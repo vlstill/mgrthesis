@@ -3,6 +3,93 @@ model checking capabilities. All the proposed transformations were
 implemented in \lart and will be released together with the next release of
 \divine.
 
+# Extensions to \divine
+
+In order to implement some of the transformations in this thesis it was
+necessary to perform minor changes in \divine's \llvm interpreter. All these
+changes are implemented in the version of \divine submitted with this thesis and
+are described in this section.
+
+## Simplified Atomic Masks
+
+The original semantics of `__divine_interrupt_mask` was not well suitable for
+composition of functions which use it, for this reason we reimplemented this
+feature so that it behaves as if `__divine_interrupt_mask` locks a global lock
+and `__divine_interrupt_unmask` unlocks it, and we devised a higher-level
+interface for this feature. This interface is described in
+\autoref{sec:trans:atomic}.
+
+## Assume Intrinsic
+
+```{.cpp}
+void __divine_assume( int value );
+```
+
+We extended \divine with a new intrinsic function which implements well-known
+assume statement. If `__divine_assume` is executed with zero `value` it stops
+the interpreter and causes it to throw away current state. `__divine_assume` is
+useful for implementation of synchronization primitives, for example in weak
+memory model simulation (see \autoref{sec:trans:wm:impl}). This function would
+should be used primarily by \divine developers, it combines well with atomic
+masks to create conditional transitions in state space.
+
+## Silent Instructions Support
+
+With $\tau+$ reduction (see \autoref{sec:divine:tau}) \divine evaluates which
+instructions modify memory which can be visible by other threads then the one
+which performs the instruction. To efficiently approximate this visibility
+\divine checks if the memory object in question can be reached from global
+variables and registers in memory graph of the current state of the program.
+However, this approximation is overly pessimistic in some cases, for example if
+there are thread local variables which are implemented as an array which is
+indexed by thread ID and each thread always accesses only the field of the array
+which corresponds to its thread ID. In such cases a static analysis might be
+able to detect that access of this memory location is indeed not visible by
+other threads and therefore should not be considered visible by $\tau+$
+reduction.
+
+To allow such analyses, we introduced a *silent flag* which is associated with
+representation of each instruction in \divine. When the model is loaded to
+\divine this flag is set to true if metadata of kind `lart.silent` are
+associated with given instruction. The $\tau+$ reduction was modified to first
+consult this flag, if it is set to true than the instruction is never considered
+visible. If the flag is set to false, visibility is checked by the original
+mechanism.
+
+## Extended State Space Reductions
+
+Several limitations for the original $\tau+$ reduction in \divine were
+discovered during this work and reduction technique in \divine was improved.
+Please refer to \autoref{sec:divine:tau} for details about $\tau+$ reduction.
+
+### Control Flow Cycle Detection
+
+First case is improvement on overly pessimistic control flow cycle detection.
+This detection is used to make sure successor generation terminates and it is
+based on detection of repeating program counter values. However, the set of
+encountered program counter values was originally reset only at the beginning of
+state generation and for this reason it was not possible to execute one function
+more that once on one edge in state space as its initial program counter was
+already in the set of seen program counters on second invocation, and therefore
+the new state was generated before the function could be executed for second
+time which resulted in unnecessary states.
+
+To alleviate this limitation all program counter values of given function are
+deleted from the set of seen program counter values every time the functions
+exits. This way two consecutive calls to the same function need not generate a
+new state, while call in the loop will generate a new state before second
+invocation (as the `call` instruction repeats), and recursion will also generate
+a new state at the second entry of the recursive function.
+
+This improved reduction is now enabled by default in the version of \divine
+submitted with this thesis. The original behavior can be obtained by options
+`--reduce=tau+,taustores` to `divine verify` command (the extended reduction can
+be explicitly enabled by `tau++` key in `reduce` option if necessary).
+
+### Independent Loads
+
+
+
 # Analyses and Transformation Building Blocks
 
 Many tasks done in \llvm transformations are common and, therefore, should be
@@ -626,11 +713,201 @@ version proposed in this work does support all atomic ordering supported by
 and allows specification of which guarantees should be added to this memory
 model. In this way the transformation can be parametrized to approximate larger
 range of memory models. Please refer to \autoref{sec:llvm:atomic} for details
-about \llvm memory model.
+about \llvm memory model and ordering of atomic instructions.
 
 ## Representation of \llvm Memory Model Using Store Buffers
 
+\label{sec:trans:wm:rep}
 
+The proposed \llvm memory model approximation uses store buffers to delay
+`store` and `fence` instructions. There is bounded store buffer associated with
+each thread of the program, this buffer is filled by `store` and `fence`
+instructions and flushed nondeterministically. The store buffer contains *store
+entries*, each of them is created by a single `store` instruction, it contains
+following fields:
+
+*   an **address** of the memory location of the store,
+*   the **value** of the store,
+*   **bit width** of the stored value (value size is limited to 64 bits),
+*   **atomic ordering** used by the store,
+*   a bit which indicates if value **was already flushed** (*flushed flag*),
+*   a bit set of **threads which observed the store** (*observed set*).
+
+Apart from store entries, store buffer can contain *fence entries* which
+correspond to `fence` instruction with at least release ordering (write fence).
+Fence entries have following fields:
+
+*   **atomic ordering** of the fence,
+*   a bit set of **threads which observed the fence**.
+
+Store buffer entries are saved in the order of execution of their corresponding
+instructions.
+
+Atomic instructions are not directly represented in the store buffers, instead
+they are split into their non-atomic equivalents using `load` and `store`
+instructions which are performed atomically in \divine atomic section and
+transformed using weak memory model.  Finally, `load` instructions and read
+fences have constraints on the state of store buffers in which they can
+execute.
+
+\bigskip
+The aim of the proposed transformation is to approximate \llvm memory model as
+closely as possible (except for the limitations given by bounded buffer). For
+this reason we support all atomic orderings apart from not atomic, which is
+modelled as unordered.[^unord] Store buffer flushing is performed
+nondeterministically, at any point an entry can be flushed from store buffer
+into memory if it meets following constraints:
+
+*   no entry can be flushed into memory if there is an entry for the same memory
+    location earlier in the same store buffer (this prevents reordering of
+    dependent stores),
+*   an entry with release or stronger atomic ordering can be flushed only if it
+    is first (oldest) in the store buffer.
+
+[^unord]: The difference between not atomic and unordered
+is that both compiler and hardware is allowed to split not atomic operations and
+the value of concurrently written not atomic location is undefined while for
+unordered it is guaranteed to be one of the previously written values; however,
+on most modern hardware there is no difference between unordered and not atomic
+for object of size less or equal to 64 bits.
+
+Furthermore, the entry can be either set as flushed using flushed flag, or
+deleted from the store buffer when it is flushed. The flushed flag is used only
+for monotonic entries which follow any release (or stronger) entries, all other
+entries are deleted immediately.
+
+The description of the realization of atomic orderings follows. We will denote
+*local store buffer* to be the store buffer of the thread which performs the
+instruction in question; the store buffers of all other threads will be denoted
+as *foreign store buffers*.
+
+All stores
+~   are performed into local store buffer, the address, value, and bitwidth is
+    saved, atomic ordering is set according to atomic ordering of the
+    corresponding `store` instruction, *flushed flag* is set to false and
+    *observed set* is set to empty set.
+
+Unordered loads
+~   can be executed at any time. All loads load value from the local store
+    buffer if it contains is newer value then the memory for given location.
+
+Monotonic load
+~   can be performed only if there is no monotonic (or stronger) store entry
+    in any foregin store buffer. In this way the monotonicity of single memory
+    location is guaranteed.
+
+    Furthermore, if there is a store entry for given memory location in any
+    foreign store buffer, and this store entry is at least monotonic, all (at
+    least) release stores and fences which precede this entry in its store
+    buffer are marked as observed by current thread.
+
+Acquire fence
+~   can be performed if there are no entries in foreign store buffers with at
+    least release ordering which were observed by current thread. This way a
+    releae store or fence synchronizes with acquire fence if the conditions of
+    fence synchronization are met (a write into an atomic object was performed
+    by the same thread after the release operation and load from the same atomic
+    object was performed before the fence in the same thread as the fence).
+
+Acquire load
+~   can be performed if a monotonic load of the same location can be performed,
+    an acquire fence can be performed, and there are no release (or stronger)
+    store entries for the same memory location in any foreing store buffer. This
+    way acquire load synchronizes with the latest release store to the same
+    memory location.
+
+Release and acquire-release loads
+~   are not allowed by \llvm.
+
+Sequentially consistent fence
+~   can be performed if acquire fence can be performed and there are no
+    sequentially consistent entries in any foreing store buffer. This way
+    sequentially consistent fence synchronizes with any sequentially consistent
+    operation performed earlier.
+
+Sequentially consistent load
+~   can be performed if acquire load of the same memory location can be
+    performed and sequentially consistent fence can be performed.
+
+\note While there is no explicit synchronization between multiple sequentially
+consistent stores/loads/fences there is still total order of all sequentially
+consistent operations which respects program order of each of the threads and
+synchronizes-with edges. For operations within a single thread their relative
+position in the total order is given by the order in which they are executed.
+For two stores from different thread which are not ordered as a result of
+explicit synchronization their relative order can be arbitrary as they are not
+dependent. Similar argumentation can be applied to load and fence instructions
+and for total ordering of all monotonic accesses to a single memory location.
+
+\autoref{fig:trans:wm:simple} demonstrates store buffer approximation of \llvm
+memory model for the case of simple shared variables, one of which is accessed
+atomically. \autoref{fig:trans:wm:fence} shows an illustration with `fence`
+instruction.
+
+\begFigure[p]
+
+```{.cpp .numberLines}
+int x;
+std::atomic< true > a;
+
+void thread1() {
+    x = 42;
+    a.store( true, std::memory_order_release );
+}
+
+void thread2() {
+    while ( !a.load( std::memory_order_acquire ) { }
+    std::cout << x << std::endl; // always prints 42
+}
+```
+
+\TODO{obrázek}
+
+\begCaption
+\endCaption
+\label{fig:trans:wm:simple}
+\endFigure
+
+\begFigure[p]
+
+```{.cpp .numberLines}
+int x;
+std::atomic< true > a;
+
+void thread1() {
+    x = 42;
+    a.store( true, std::memory_order_release );
+}
+
+void thread2() {
+    while ( !a.load( std::memory_order_relaxed ) { }
+    std::cout << x << std::endl; // can print 0 or 42
+    std::atomic_thread_fence( std::memory_order_acquire );
+    std::cout << x << std::endl; // always prints 42
+}
+```
+
+\TODO{obrázek}
+
+\begCaption
+\endCaption
+\label{fig:trans:wm:fence}
+\endFigure
+
+## Nondeterministic Flushing \label{sec:trans:wm:flush}
+
+When write is performed into store buffer it can be flushed into the memory at
+any time. To simulate this nondeterminism we introduce a thread which is
+responsible for store buffer flushing, there will be one such *flusher* thread
+for each store buffer. The interleaving of this thread with the thread which
+writes into the store buffer will result in all possible ways in which flushing
+can be done.
+
+The flusher threads runs an infinite loop, an iteration of this loop is enabled
+if there are any entries in store buffer associated with this flusher thread. In
+each iteration of the loop the flusher thread nondeterministically selects an
+entry in the store buffer and flushes if it is possible according to the rules
+in \autoref{sec:trans:wm:rep}.
 
 ## Implementation
 
@@ -638,8 +915,22 @@ The transformation implementation consists of two passes over \llvm bitcode, the
 first one (written by Petr Ročkai) is used to split loads and stores larger than
 64 bits into smaller loads and stores. In the second phase (written by me),
 bitcode is instrumented with store buffers using functions which perform stores
-and loads into store buffer. These functions are implemented in C++ and are part
-of the bitcode libraries provided by \divine.
+and loads into store buffer. These functions are implemented in C++ compiled
+together with the verified program by `divine compile`. The userspace functions
+can be found in `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the
+transformation pass can be found in `lart/weakmem/pass.cpp`.
+
+
+
+
+
+
+
+
+
+
+
+
 
 More specifically we distinguish three kind of functions in our transformation:
 *TSO*, *SC*, and *bypass* --- TSO functions will be instrumented to use Total
@@ -671,8 +962,6 @@ store buffer and \llvm memory manipulating intrinsics[^llvmmmi] are replaced by
 functions which implement their functionality using store buffers.
 
 [^llvmmmi]: These are `llvm.memcpy`, `llvm.memmove`, and `llvm.memset`.
-
-## Nondeterministic Flushing
 
 ## Integration with $\tau+$ Reduction
 
