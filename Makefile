@@ -27,3 +27,7 @@ thesis.bcf :
 exvis.ll : exvis.cpp
 	clang++ -std=c++14 -S -emit-llvm $< -O2
 
+watch :
+	while true; do inotifywait -e close_write,moved_to,create .; sleep 1; make; done
+
+.PHONY: watch
