@@ -56,7 +56,7 @@ consult this flag, if it is set to true than the instruction is never considered
 visible. If the flag is set to false, visibility is checked by the original
 mechanism.
 
-## Extended State Space Reductions
+## Extended State Space Reductions \label{sec:trans:tauextend}
 
 Several limitations for the original $\tau+$ reduction in \divine were
 discovered during this work and reduction technique in \divine was improved.
@@ -82,13 +82,67 @@ invocation (as the `call` instruction repeats), and recursion will also generate
 a new state at the second entry of the recursive function.
 
 This improved reduction is now enabled by default in the version of \divine
-submitted with this thesis. The original behavior can be obtained by options
+submitted with this thesis. The original behavior can be obtained by option
 `--reduce=tau+,taustores` to `divine verify` command (the extended reduction can
 be explicitly enabled by `tau++` key in `reduce` option if necessary).
 
 ### Independent Loads
 
+Another case of overly strict reduction heuristic are independent loads from
+shared memory locations. Consider two shared memory locations (for example
+shared variables) $a$ and $b$ such that $a \neq b$. The proposition is that we
+can extend $\tau+$ reduction in such a way that load from $a$ and load from $b$
+can be performed without the intermediate state (that is on a single edge in
+the state space). We will now show correctness of this proposition.
 
+Suppose thread $t1$ performs load of $a$ and then load of $b$ (and there are no
+action which would be considered observable by $\tau+$ in-between).
+
+*   If any other thread performs load of $a$ or $b$ this clearly does not
+    interfere with $t1$.
+*   If some other thread $t2$ writes[^store] into $a$ this write is always
+    an observable action and it can happen either
+
+    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$, in
+        these case the proposed change has no effect;
+    b)  after the load of $a$, but before the load of $b$ by $t1$, this case is
+        not possible with the extended reduction, but equivalent result can be
+        obtained if $a$ is written after the load of $b$, as this load is
+        independent and therefore its result is does not depend on value of $a$.
+
+*   If some other thread $t2$ writes into $b$ this write is always an observable
+    action and it can happen either
+
+    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$, in
+        these cases the proposed change has no effect;
+    b)  after the load of $a$, but before the load of $b$ by $t1$, again, this
+        case is not possible with the extended reduction but equivalent result
+        can be obtained if $b$ is written before the load of $a$ (it does not
+        change its result as $a \neq b$).
+
+*   There can be no synchronization which would disallow any of the
+    aforementioned interleavings as thread $t2$ cannot detect where in the
+    sequence of instructions between load $a$ and load $b$ thread $t1$ is
+    (there are no visible actions between the loads).
+
+*   On the other hand, if there are any other visible actions between these
+    loads, or if $a = b$ then the conditions are not met and the loads are not
+    performed atomically.
+
+The same argumentation can be applied to more than two independent loads from a
+single thread.
+
+To implement this reduction \divine now tracks which memory objects were loaded
+while it generates new state. If given memory object is loaded for the first
+time, its address is stored and this load is not considered to be observable. If
+the same object is to be loaded for the second time during generation of the
+state the state is emitted just before this load. This reduction is now enabled
+by default, the original behavior can be obtained by option
+`--reduce=tau++,taustores` to `divine verify` command (the extended reduction
+can be explicitly enbaled by `tauloads` key in `reduce` option).
+
+[^store]: Write  can be implemented using `store`, `atomicrmw`, or `cmpxchg`
+instructions, or by `__divine_memcpy` intrinsic.
 
 # Analyses and Transformation Building Blocks
 
@@ -909,6 +963,120 @@ each iteration of the loop the flusher thread nondeterministically selects an
 entry in the store buffer and flushes if it is possible according to the rules
 in \autoref{sec:trans:wm:rep}.
 
+## Atomic Instruction Representation
+
+Atomic instructions (`cmpxchg` and `atomicrmw`) are not transformed to weak
+memory model directly, instead they are first split into sequence of
+instructions which perform the same action (but not atomically) and this
+sequence is executed under \divine mask. This sequence of instructions contains
+loads and stores with atomic ordering derived from the atomic ordering of the
+original atomic instruction and these instructions are later transformed to weak
+memory models.
+
+```{.llvm}
+%res = atomicrmw op ty* %pointer, ty %value ordering
+```
+
+Atomic read-modify-write instruction atomically performs a load from `pointer`
+with given atomic ordering, then performs given operation with the result of the
+load and `value` and finally stores the result into the `pointer` again using
+give atomic ordering. It yields the original value loaded from `pointer`. The
+operation `op` can be one of `exchange`, `add`, `sub`, `and`, `or`, `nand`,
+`xor`, `max`, `min`, `umax`, `umin` (the last two are unsigned minimum/maximum
+while the previous two perform signed compare). An example of transformation can
+be seen in \autoref{fig:trans:wm:atomicrmw}.
+
+\begFigure[tp]
+
+```{.llvm}
+; some instructions before
+%res = atomicrmw op ty* %pointer, ty %value ordering
+; some instructions after
+```
+
+This will be transformed into:
+
+```{.llvm}
+; some instructions before
+%0 = call i32 @__divine_interrupt_mask()
+%lart.weakmem.atomicrmw.shouldunlock = icmp eq i32 %3, 0
+%lart.weakmem.atomicrmw.orig = load atomic ty, ty* %ptr ordering
+; the instruction used here depends on op:
+%opval = op %lart.weakmem.atomicrmw.orig %value
+store atomic ty %opval, ty* %ptr seq_cst
+br i1 %lart.weakmem.atomicrmw.shouldunlock,
+    label %lart.weakmem.atomicrmw.unmask,
+    label %lart.weakmem.atomicrmw.continue
+
+lart.weakmem.atomicrmw.unmask:
+call void @__divine_interrupt_unmask()
+br label %lart.weakmem.atomicrmw.continue
+
+lart.weakmem.atomicrmw.continue:
+; some other instructions after, %res is replaced with
+; %lart.weakmem.atomicrmw.orig
+```
+
+The implementation of `op` depends on its value, for example for `exchange`
+there will be no instruction corresponding to `op` and the `store` will store
+`%value` instead of `%opval`. On the other hand `max` will be implemented using
+two instructions (first the values are compared, then the bigger of them is
+selected using `select` instruction):
+
+```{.llvm}
+%1 = icmp sgt %lart.weakmem.atomicrmw.orig %value
+%opval = select %1 %lart.weakmem.atomicrmw.orig %value
+```
+
+\begCaption An example of transformation of `atomicrmw` instruction into
+equivalent sequence of instructions which is executed atomically using
+`__divine_interrupt_mask`.
+\endCaption
+\label{fig:trans:wm:atomicrmw}
+\endFigure
+
+```{.llvm}
+%res = cmpxchg ty* %pointer, ty %cmp, ty %new
+    success_ordering failure_ordering ; yields  { ty, i1 }
+```
+
+Atomic compare-and-exchange instruction atomically loads value from `pointer`,
+compares it with `cmp` and if they match stores `new` in `pointer`. It returns a
+composite type which contains the original value loaded from `pointer` and a
+boolean flag which indicates if the comparison succeeded. Unlike other atomic
+instructions `cmpxchg` take two atomic ordering arguments, one which gives
+ordering in case of success and the other for ordering in case of failure.  This
+instruction can be replace by a code which performs `load` with
+`failure_ordering`, comparison of loaded value and `cmp` and if it succeeds
+`fence` with `succeeds_ordering` and `store` with `succeeds_ordering`. The
+reason to use `failure_ordering` in the load is that failed `cmpxchg` should be
+equivalent to load with `failure_ordering` and we can use `fence` to strengthen
+the ordering on success. An example of such transformation can be seen in
+\autoref{fig:trans:wm:atomic:cmpxchg}.
+
+\begFigure[tp]
+
+```{.llvm}
+; some instructions before
+%res = cmpxchg ty* %pointer, ty %cmp, ty %new
+    success_ordering failure_ordering
+; some instructions after
+```
+
+This will be transformed into:
+
+```{.llvm}
+; some instructions before
+; some instructions after
+```
+
+\begCaption
+\endCaption
+\label{fig:trans:wm:atomic:cmpxchg}
+\endFigure
+
+
+
 ## Implementation
 
 The transformation implementation consists of two passes over \llvm bitcode, the
@@ -920,7 +1088,9 @@ together with the verified program by `divine compile`. The userspace functions
 can be found in `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the
 transformation pass can be found in `lart/weakmem/pass.cpp`.
 
-
+First it is necessary to detect which userspace functions should not be
+transformed. These are the functions used to implement store buffers, they are
+annotated with `lart.weakmem.bypass` using Clang attribute `annotate`. 
 
 
 
