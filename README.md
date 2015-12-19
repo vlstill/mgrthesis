@@ -1,1 +1,4 @@
-# Master thesis: Optimization of LLVM Bitcode for Verification Using DIVINE Model Checker
+# Master thesis: LLVM Transformations for Model Checking
+
+author: Vladimír Štill
+advisor: Jiří Barnat
