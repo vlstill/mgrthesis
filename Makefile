@@ -1,6 +1,6 @@
 ALL=$(wildcard *.md)
 
-all : thesis.pdf
+all : thesis.pdf archive_README.pdf
 	make -C draft
 
 thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl
@@ -31,3 +31,11 @@ watch :
 	while true; do inotifywait -e close_write,moved_to,create .; sleep 1; make; done
 
 .PHONY: watch
+
+archive_README.md : appendix.md
+	sed $< -re 's/\\divine/DIVINE/g' -e 's/\\lart/LART/g' \
+		-e 's/\\darcs/darcs/g' -e 's/\\llvm/LLVM/g' \
+		-e 's/\\label\{[^}]*\}//g' > $@
+
+archive_README.pdf : archive_README.md
+	pandoc $< -o $@ -V geometry:a4paper,margin=2.5cm
