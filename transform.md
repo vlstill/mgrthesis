@@ -619,7 +619,7 @@ sections work.
 
 
 
-# Weak Memory Models
+# Weak Memory Models \label{sec:trans:wm}
 
 In modern CPUs, a write to memory location need not be immediately visible in
 other threads, for example due to caches or out-of-order execution. However most
@@ -999,22 +999,22 @@ This will be transformed into:
 ```{.llvm}
 ; some instructions before
 %0 = call i32 @__divine_interrupt_mask()
-%lart.weakmem.atomicrmw.shouldunlock = icmp eq i32 %3, 0
-%lart.weakmem.atomicrmw.orig = load atomic ty, ty* %ptr ordering
+%atomicrmw.shouldunlock = icmp eq i32 %3, 0
+%atomicrmw.orig = load atomic ty, ty* %ptr ordering
 ; the instruction used here depends on op:
-%opval = op %lart.weakmem.atomicrmw.orig %value
+%opval = op %atomicrmw.orig %value
 store atomic ty %opval, ty* %ptr seq_cst
-br i1 %lart.weakmem.atomicrmw.shouldunlock,
-    label %lart.weakmem.atomicrmw.unmask,
-    label %lart.weakmem.atomicrmw.continue
+br i1 %atomicrmw.shouldunlock,
+    label %atomicrmw.unmask,
+    label %atomicrmw.continue
 
-lart.weakmem.atomicrmw.unmask:
+atomicrmw.unmask:
 call void @__divine_interrupt_unmask()
-br label %lart.weakmem.atomicrmw.continue
+br label %atomicrmw.continue
 
-lart.weakmem.atomicrmw.continue:
+atomicrmw.continue:
 ; some other instructions after, %res is replaced with
-; %lart.weakmem.atomicrmw.orig
+; %atomicrmw.orig
 ```
 
 The implementation of `op` depends on its value, for example for `exchange`
@@ -1024,8 +1024,8 @@ two instructions (first the values are compared, then the bigger of them is
 selected using `select` instruction):
 
 ```{.llvm}
-%1 = icmp sgt %lart.weakmem.atomicrmw.orig %value
-%opval = select %1 %lart.weakmem.atomicrmw.orig %value
+%1 = icmp sgt %atomicrmw.orig %value
+%opval = select %1 %atomicrmw.orig %value
 ```
 
 \begCaption An example of transformation of `atomicrmw` instruction into
@@ -1067,71 +1067,66 @@ This will be transformed into:
 
 ```{.llvm}
 ; some instructions before
+%0 = call i32 @__divine_interrupt_mask()
+%cmpxchg.shouldunlock = icmp eq i32 %6, 0
+%cmpxchg.orig = load atomic ty, ty* %ptr failure_ordering
+%cmpxchg.eq = icmp eq i64 %cmpxchg.orig, %cmp
+br i1 %cmpxchg.eq,
+    label %cmpxchg.ifeq,
+    label %cmpxchg.end
+
+cmpxchg.ifeq:
+fence success_ordering
+store atomic ty %new, ty* %ptr success_ordering
+br label %cmpxchg.end
+
+cmpxchg.end:
+%1 = insertvalue { ty, i1 } undef, ty %cmpxchg.orig, 0
+%res = insertvalue { ty, i1 } %1, i1 %cmpxchg.eq, 1
+br i1 %cmpxchg.shouldunlock,
+    label %cmpxchg.unmask,
+    label %cmpxchg.continue
+
+cmpxchg.unmask:
+call void @__divine_interrupt_unmask()
+br label %cmpxchg.continue
+
+cmpxchg.continue:
 ; some instructions after
 ```
 
-\begCaption
+\begCaption An example of transformation of `cmpxchg` instruction into
+equivalent sequence of instructions which is executed atomically using
+`__divine_interrupt_mask`.
 \endCaption
 \label{fig:trans:wm:atomic:cmpxchg}
 \endFigure
 
+## Memory Order Specification
+
+It is not always desirable to verify a program with the weakest possible memory
+model. For this reason the transformation can be parametrized with a minimal
+ordering it guarantees for given memory operation (each of `load`, `store`,
+`fence`, `atomicrmw`, `cmpxchg` success ordering, and `cmpxchg` failure ordering
+can be specified).
+
+This way other memory models than strict \llvm memory model can be simulated,
+for example Total Store Order is equivalent to setting all of the minimal
+orderings to release-acquire, the memory model of x86 (which is basically TSO
+with sequentially consistent atomic compare and swap, atomic
+read-modify-write, and fence) can be approximated by setting `load` to acquire,
+`store` to release, and the remaining instructions to sequentially consistent
+ordering.
+
+## Memory Cleanup
+
+When a write to a certain memory location is delayed it can happen that this
+memory location becomes invalid before the delayed write is actually performed.
+This can happen both for local variables and for dynamically allocated memory.
+For local variables the value might be written after the function exits, while
+for dynamic memory value might be stored after the memory is freed.
 
 
-## Implementation
-
-The transformation implementation consists of two passes over \llvm bitcode, the
-first one (written by Petr Ročkai) is used to split loads and stores larger than
-64 bits into smaller loads and stores. In the second phase (written by me),
-bitcode is instrumented with store buffers using functions which perform stores
-and loads into store buffer. These functions are implemented in C++ compiled
-together with the verified program by `divine compile`. The userspace functions
-can be found in `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the
-transformation pass can be found in `lart/weakmem/pass.cpp`.
-
-First it is necessary to detect which userspace functions should not be
-transformed. These are the functions used to implement store buffers, they are
-annotated with `lart.weakmem.bypass` using Clang attribute `annotate`. 
-
-
-
-
-
-
-
-
-
-
-
-More specifically we distinguish three kind of functions in our transformation:
-*TSO*, *SC*, and *bypass* --- TSO functions will be instrumented to use Total
-Store Order memory model, SC functions will be instrumented to use Sequential
-Consistency \TODO{co to znamená -> ono to neznamená, že by ta funkce viděla
-efekty okamžitě, ale že JEJÍ efekty jsou vidět okamžtě),
-and bypass functions will be left unchanged --- these are used to
-implement the store buffer simulation. These kinds can be assigned to functions
-either by the means of annotation attributes[^annot], or by specifying default
-function kind, which will be used for all functions without annotation (this can
-be either TSO, or SC).
-
-[^annot]: For example `__attribute__((annotate("lart.weakmem.tso")))` should be
-added to function header for TSO function.
-
-The transformation of SC functions is the following: there is a memory barrier
-at the beginning of the function and after any call to function which is not
-known to be SC. No load or store transformation is necessary. For TSO functions,
-any load and store must be instrumented. This is done by replacing `load` and
-`store` instructions with calls to `__lart_weakmem_load_tso` and
-`__lart_weakmem_store_tso` --- these functions perform actual load or store
-using store buffer. Furthermore memory can be manipulated by the means of atomic
-instructions, that is `atomicrmw` (atomic read-modify-write) and `cmpxchg`
-(compare-and-swap), these are implemented by first flushing store buffer, and
-then executing the instruction without any modification --- this ensures
-sequential consistency required by these instructions \TODO{ne-SC varianty}.
-Finally memory barriers done by `fence` instruction are replaced by flushing
-store buffer and \llvm memory manipulating intrinsics[^llvmmmi] are replaced by
-functions which implement their functionality using store buffers.
-
-[^llvmmmi]: These are `llvm.memcpy`, `llvm.memmove`, and `llvm.memset`.
 
 ## Integration with $\tau+$ Reduction
 
@@ -1201,18 +1196,99 @@ only be accessed from one thread.
 The evaluation of the original method proposed in \cite{SRB15}, as well as the
 optimizations proposed here can be found in \autoref{sec:res:wm:tau}.
 
-## Invalidated Variable Store Problem
+## Implementation
 
-\label{sec:extend:wm:invstore}
+The transformation implementation consists of two passes over \llvm bitcode, the
+first one (written by Petr Ročkai) is used to split loads and stores larger than
+64 bits into smaller loads and stores. In the second phase (written by me),
+bitcode is instrumented with store buffers using functions which perform stores
+and loads into store buffer. These functions are implemented in C++ compiled
+together with the verified program by `divine compile`. The userspace functions
+can be found in `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the
+transformation pass can be found in `lart/weakmem/pass.cpp`. The transformation
+can be run using `lart` binary, see \autoref{sec:ap:lart} for detains on
+how to compile and run \lart.
 
-## Atomic Instructions in Weak Memory
+### Userspace Functions
 
-The original proposal presented on MEMICS 2015 \cite{SRB15} did not include
-support for atomic instructions with atomic ordering other than sequentially
-consistent (for description about atomic instructions and atomic orderings in
-\llvm see \autoref{sec:llvm:atomic}). In this section we present extension of
-the original proposal which allows simulation of weaker versions of atomic
-functions.
+The userspace part of weak memory transformation consists of a variable which
+stores store buffer size limit, a data type which is used to represent atomic
+ordering, and functions which implement `load`, `store`, and `fence`
+instructions in weak memory simulation and replacements for `llvm.memcpy`,
+`llvm.memset`, and `llvm.memcopy` intrinsic functions.
+
+```{.c}
+volatile extern int __lart_weakmem_buffer_size;
+
+enum __lart_weakmem_order;
+
+/* instruction replacement functions */
+void __lart_weakmem_store( char *addr, uint64_t value,
+            uint32_t bitwidth, __lart_weakmem_order ord );
+uint64_t __lart_weakmem_load( char *addr, uint32_t bitwidth,
+            __lart_weakmem_order ord );
+void __lart_weakmem_fence( __lart_weakmem_order ord );
+
+/* clenaup function */
+void __lart_weakmem_cleanup( int cnt, ... );
+
+/* memory manipulation functions */
+void __lart_weakmem_memmove( char *dest, const char *src,
+                                          size_t n );
+void __lart_weakmem_memcpy( char *dest, const char *src,
+                                          size_t n );
+void __lart_weakmem_memset( char *dest, int c, size_t n );
+```
+
+### Transformation
+
+First it is necessary to detect which userspace functions should not be
+transformed. These are the functions used to implement store buffers, they are
+annotated with `lart.weakmem.bypass` using Clang attribute `annotate`.
+Furthermore it is essential that these functions do not call any functions which
+are transformed, for this reason they use attribute `flatten` which instructs
+compiler to inline all calls into the function. 
+
+
+
+
+
+
+
+
+
+
+
+More specifically we distinguish three kind of functions in our transformation:
+*TSO*, *SC*, and *bypass* --- TSO functions will be instrumented to use Total
+Store Order memory model, SC functions will be instrumented to use Sequential
+Consistency \TODO{co to znamená -> ono to neznamená, že by ta funkce viděla
+efekty okamžitě, ale že JEJÍ efekty jsou vidět okamžtě),
+and bypass functions will be left unchanged --- these are used to
+implement the store buffer simulation. These kinds can be assigned to functions
+either by the means of annotation attributes[^annot], or by specifying default
+function kind, which will be used for all functions without annotation (this can
+be either TSO, or SC).
+
+[^annot]: For example `__attribute__((annotate("lart.weakmem.tso")))` should be
+added to function header for TSO function.
+
+The transformation of SC functions is the following: there is a memory barrier
+at the beginning of the function and after any call to function which is not
+known to be SC. No load or store transformation is necessary. For TSO functions,
+any load and store must be instrumented. This is done by replacing `load` and
+`store` instructions with calls to `__lart_weakmem_load_tso` and
+`__lart_weakmem_store_tso` --- these functions perform actual load or store
+using store buffer. Furthermore memory can be manipulated by the means of atomic
+instructions, that is `atomicrmw` (atomic read-modify-write) and `cmpxchg`
+(compare-and-swap), these are implemented by first flushing store buffer, and
+then executing the instruction without any modification --- this ensures
+sequential consistency required by these instructions \TODO{ne-SC varianty}.
+Finally memory barriers done by `fence` instruction are replaced by flushing
+store buffer and \llvm memory manipulating intrinsics[^llvmmmi] are replaced by
+functions which implement their functionality using store buffers.
+
+[^llvmmmi]: These are `llvm.memcpy`, `llvm.memmove`, and `llvm.memset`.
 
 # Code Optimization in Formal Verification
 
