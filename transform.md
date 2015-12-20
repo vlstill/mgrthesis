@@ -256,7 +256,7 @@ in the transformed function.
 Therefore, we need to transform any call in such a way that if the called
 function can throw an exception it is always called by `invoke`, and all the
 `langingpad` instruction have `cleanup` flag. Furthermore, this transformation
-must not change observable behaviour of the program --- if the exception would
+must not change observable behavior of the program --- if the exception would
 fall through without being intercepted in the original program, it needs to be
 intercepted and immediately resumed, and if the exception was intercepted by the
 original program, its processing must be left unchanged (while the fact that the
@@ -1399,7 +1399,103 @@ match the name used for this ordering in C++11/C11 standard.
 
 # Code Optimization in Formal Verification
 
-When real-world code is being verified 
+\divine aims at verification of real-world code written in C and C++. Both \llvm
+IR and assembly produced from such code is often heavily optimized to increase
+its speed when it is compiled. To verify the code as precisely as possible it is
+desirable to verify \llvm IR with all optimizations which will be used in the
+binary version of the program, and the binary should be compiled by the same
+compiler as the \llvm IR used in \divine. Ideally it would be possible to use
+the same \llvm IR for verification and to build the binary, but this is not
+currently possible as \divine needs to re-implement library features (namely
+`pthreads` and C++ exception handling) and this implementation might not be
+compatible with the version used on given platform. Nevertheless, \divine should
+use the optimization level requested by its user for program compilation.
+
+On the other hand, it is desirable to utilize \llvm optimizations in such a way
+that model checking can benefit from it. This, however, requires special purpose
+optimizations designed for verification, as the general purpose optimizations do
+not meet following two requirements critical for verification.
+
+*   **They can change satisfiability of verified property.** This is usually
+    caused by the fact that compiler optimizations are not required to preserve
+    behavior of parallel programs, and that many programs written in C/C++
+    contain undefined behavior as they access non-atomic non-volatile variables
+    from multiple threads. See \autoref{fig:trans:opt:undef} for an example of
+    such property-changing optimization.
+
+*   **They might increase state space size.** Not all optimizations which lead
+    to faster execution lead to faster verification as they might change
+    program behavior in such a way that model checker generates more states. An
+    example of such transformation can be any transformation which increases the
+    number of registers in a function, which might cause states which were
+    originally considered to be the same to be distinct after such optimization.
+    More specifically, examples of such transformation are promotion of
+    variables into registers, loop unrolling, and loop rotation which can be
+    seen in \autoref{fig:trans:opt:looprot}.
+
+\begFigure[tp]
+
+\begCaption
+\endCaption
+\label{fig:trans:opt:undef}
+\endFigure
+
+\begFigure[tp]
+
+Suppose a program with global atomic boolean variable `turn` and a code snipped
+which waits for this value to be set to true:
+
+```{.cpp}
+while ( !turn ) { }
+// rest of the code
+```
+
+This program might generate following \llvm:
+
+```{.llvm}
+loop:
+%0 = load atomic i8, i8* @turn seq_cst
+%1 = icmp eq i8 %0, 0
+br %1, label %loop, label %end
+
+end:
+; rest of the code
+```
+
+With optimization this \llvm can be changed to:
+
+```{.llvm}
+pre:
+%0 = load atomic i8, i8* @turn seq_cst
+%1 = icmp eq i8 %0, 0
+br %1, label %loop, label %end
+
+loop:
+%2 = load atomic i8, i8* @turn seq_cst
+%3 = icmp eq i8 %2, 0
+br %3, label %loop, label %end
+
+end:
+; rest of the code
+```
+
+Basically the loop is rotated to a loop equivalent to the following code:
+
+```{.cpp}
+if ( !trun ) {
+    do { } while ( !turn ) { }
+}
+```
+
+While this code might be faster in practice due to branch prediction, for model
+checking this is adverse change as the model checker can now distinguish the
+state after one and two executions of the original loop based on the register
+values.
+\begCaption
+An example of optimization with adverse effect on model checking.
+\endCaption
+\label{fig:trans:opt:looprot}
+\endFigure
 
 # Atomic Blocks
 

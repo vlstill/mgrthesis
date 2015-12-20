@@ -24,6 +24,8 @@ other forms.
 
 # \llvm IR basics
 
+\TODO{BB labels}
+
 \llvm IR human-readable representation is similar to assembly languages,
 but it is typed and more verbose. In this section, we will shortly describe
 relevant part of this human-readable \llvm representation as well as a basic
@@ -215,7 +217,7 @@ Unordered
     otherwise changed in a way that load would result in value different from
     all written previously to the same memory location. This memory ordering is
     used for non-atomic loads and stores in Java and other programming languages
-    in which data races are not allowed to have undefined behaviour.[^cpprace]
+    in which data races are not allowed to have undefined behavior.[^cpprace]
 
 Monotonic
 
@@ -255,7 +257,7 @@ Sequentially Consistent
 
 [^cpprace]: This is in contrast with standard of C++11/C11 which specify that
 concurrent, unsynchronized access of same non-atomic memory location results in
-undefined behaviour, for example `load` can return value which was never written
+undefined behavior, for example `load` can return value which was never written
 to given memory location.
 
 An example of synchronizes-with edges and happens-before partial order can be
