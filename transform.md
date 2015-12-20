@@ -29,7 +29,7 @@ We extended \divine with a new intrinsic function which implements well-known
 assume statement. If `__divine_assume` is executed with zero `value` it stops
 the interpreter and causes it to throw away current state. `__divine_assume` is
 useful for implementation of synchronization primitives, for example in weak
-memory model simulation (see \autoref{sec:trans:wm:impl}). This function would
+memory model simulation (see \autoref{sec:trans:wm:cleanup}). This function would
 should be used primarily by \divine developers, it combines well with atomic
 masks to create conditional transitions in state space.
 
@@ -56,11 +56,15 @@ consult this flag, if it is set to true than the instruction is never considered
 visible. If the flag is set to false, visibility is checked by the original
 mechanism.
 
-## Extended State Space Reductions \label{sec:trans:tauextend}
+## Extended State Space Reductions
+
+\label{sec:trans:tauextend}
 
 Several limitations for the original $\tau+$ reduction in \divine were
 discovered during this work and reduction technique in \divine was improved.
 Please refer to \autoref{sec:divine:tau} for details about $\tau+$ reduction.
+The impact of proposed changes to $\tau+$ reduction can be found in
+\autoref{sec:res:tau}.
 
 ### Control Flow Cycle Detection
 
@@ -156,7 +160,9 @@ block splitting and instruction insertion. In other cases, it is useful to add
 to this set of primitives, for this reason, \lart was extended to include several
 such utilities.
 
-## Fast Instruction Reachability \label{sec:trans:b:reach}
+## Fast Instruction Reachability
+
+\label{sec:trans:b:reach}
 
 While \llvm has support to check whether value of one instruction might reach
 other instruction (using `isPotentiallyReachable` function) this function is
@@ -202,7 +208,9 @@ average number of edges in control flow graph with $n$ vertices is expected to
 be less than $2n$.
 
 
-## Exception Visibility \label{sec:trans:b:vex}
+## Exception Visibility
+
+\label{sec:trans:b:vex}
 
 Often \llvm is transformed in a way which requires that certain cleanup action
 is performed right before a function exits, one such example would be unlocking
@@ -371,7 +379,9 @@ Furthermore, to simplify transformations which add cleanups at function exits, a
 function `atExits` is available in the same header file.
 
 
-## Local Variable Cleanup \label{sec:trans:b:lvc}
+## Local Variable Cleanup
+
+\label{sec:trans:b:lvc}
 
 When enriching \llvm bitcode in a way which modifies local variables it is
 often necessary to perform cleaning operation at the end of the scope of these
@@ -461,7 +471,9 @@ in this basic block (it can be either the `alloca` itself, or a `phi`
 instruction) The transformation is done by function `addAllocaCleanups` which is
 defined in `lart/support/cleanup.h`.
 
-# New Interface for Atomic Sections \label{sec:trans:atomic}
+# New Interface for Atomic Sections
+
+\label{sec:trans:atomic}
 
 The interface for declaring atomic sections in verified code (described in
 \autoref{sec:divine:llvm:mask}) is hard to use, the main reason being that while
@@ -619,7 +631,9 @@ sections work.
 
 
 
-# Weak Memory Models \label{sec:trans:wm}
+# Weak Memory Models
+
+\label{sec:trans:wm}
 
 In modern CPUs, a write to memory location need not be immediately visible in
 other threads, for example due to caches or out-of-order execution. However most
@@ -866,7 +880,7 @@ Acquire fence
 Acquire load
 ~   can be performed if a monotonic load of the same location can be performed,
     an acquire fence can be performed, and there are no release (or stronger)
-    store entries for the same memory location in any foreing store buffer. This
+    store entries for the same memory location in any foreign store buffer. This
     way acquire load synchronizes with the latest release store to the same
     memory location.
 
@@ -875,7 +889,7 @@ Release and acquire-release loads
 
 Sequentially consistent fence
 ~   can be performed if acquire fence can be performed and there are no
-    sequentially consistent entries in any foreing store buffer. This way
+    sequentially consistent entries in any foreign store buffer. This way
     sequentially consistent fence synchronizes with any sequentially consistent
     operation performed earlier.
 
@@ -948,7 +962,9 @@ void thread2() {
 \label{fig:trans:wm:fence}
 \endFigure
 
-## Nondeterministic Flushing \label{sec:trans:wm:flush}
+## Nondeterministic Flushing
+
+\label{sec:trans:wm:flush}
 
 When write is performed into store buffer it can be flushed into the memory at
 any time. To simulate this nondeterminism we introduce a thread which is
@@ -964,6 +980,8 @@ entry in the store buffer and flushes if it is possible according to the rules
 in \autoref{sec:trans:wm:rep}.
 
 ## Atomic Instruction Representation
+
+\label{sec:trans:wm:atomic}
 
 Atomic instructions (`cmpxchg` and `atomicrmw`) are not transformed to weak
 memory model directly, instead they are first split into sequence of
@@ -1120,48 +1138,62 @@ ordering.
 
 ## Memory Cleanup
 
+\label{sec:trans:wm:clenaup}
+
 When a write to a certain memory location is delayed it can happen that this
 memory location becomes invalid before the delayed write is actually performed.
 This can happen both for local variables and for dynamically allocated memory.
 For local variables the value might be written after the function exits, while
 for dynamic memory value might be stored after the memory is freed.
 
+To solve this problem, entries corresponding to invalidated memory need to be
+removed from local store buffer. The reason to leave the entries in foreign
+store buffers is that existence of such entries suggests that the write to the
+(soon-to-be invalidated) memory location did not synchronize properly with the
+end of scope of the memory location.
 
+For dynamic memory it is sufficient to remove all entries corresponding to the
+object just before the call to `__divine_free` which performs the deallocation.
+For local variable it is necessary to remove the entries just before the
+function exits, to do this we employ the local variable cleanup described in
+\autoref{sec:trans:b:lvc}.
 
 ## Integration with $\tau+$ Reduction
 
 As described in \autoref{sec:divine:tau} one of important reduction techniques
 in \divine is $\tau+$ reduction which allows execution of multiple consecutive
 instructions in one atomic block if there is no more then one action observable
-by other threads in this block. For example, a `load` instruction is observable
-if and only if it loads from memory block to which some other thread holds
+by other threads in this block. For example, a `store` instruction is observable
+if and only if it stores to a memory block to which some other thread holds
 a pointer.
 
 This in particular means that any load from or store into store buffer will be
 considered visible action because the store buffer has to be visible both from
 the thread executing the load or store and from the thread which flushes store
-buffer to memory.
+buffer to the memory.
 
+\bigskip
 To partially mitigate this issue it was proposed in \cite{SRB15} to bypass store
 buffer when storing to addresses which are thread local from the point of
 \divine's $\tau+$ reduction. To do this `__divine_is_private` intrinsic function
-is used in `__lart_weakmem_store_tso`, and if the address to which store is
-performed is indeed private, the store is executed directly, bypassing store
-buffer.
+is used in the function which implements weak memory store, and if the address
+to which store is performed is indeed private, the store is executed directly,
+bypassing store buffer.
 
-This reduction is indeed correct for TSO stores. It is easy to see that the
-reduction is correct if a memory location is always private, or always public
-for the entire run of the program --- the first case means it is never accessed
-from more then one thread and therefore no store buffer is needed, the second
-case means the store buffer will be always uses. If the memory location (say
-`x`) becomes public during the run of the program it is again correct (the
-publication can happen only by writing an address of memory location from which
-`x` can be reached following pointers into some already public location):
+This reduction is indeed correct for TSO stores which were simulated in
+\cite{SRB15}. It is easy to see that the reduction is correct if a memory
+location is always private or always public for the entire run of the program
+--- the first case means it is never accessed from more then one thread and
+therefore no store buffer is needed, the second case means the store buffer will
+be used always. If the memory location (say `x`) becomes public during the run
+of the program it is again correct (the publication can happen only by writing
+an address of memory location from which `x` can be reached following pointers
+into some already public location):
 
-*   if `x` is first written and then published then, were the store
-    buffers used, the value of `x` would need to be flushed from store buffer
-    before `x` could be reached from other thread (because the stores cannot be
-    reordered), and therefore the observable values are the same in with and
+*   if `x` is first written and then published then, were the store buffers
+    used, the value of `x` would need to be flushed from store buffer before `x`
+    could be reached from other thread (because the stores cannot be reordered
+    under TSO), and therefore the observable values are the same in with and
     without the reduction;
 
 *   if `x` is first made private and then written, then the "making private"
@@ -1174,15 +1206,24 @@ publication can happen only by writing an address of memory location from which
 *   the remaining possibilities (`x` written after publication, and `x` written
     before making it private) are not changed by the reduction.
 
-Furthermore, considering that all store buffers are reachable from all threads,
-and therefore any memory location which has entry in store buffer is considered
-public, we can extend this reduction proposed in \cite{SRB15} to `load`
-instructions as well. That is we can bypass looking for value in store buffer if
-its memory location is considered private by \divine, because no memory location
-which is private can have entry in store buffer. This means that loads of
-private memory locations are no longer considered as visible actions by $\tau+$
-which leads to further state space reduction for programs with weak memory
-simulation.
+In our case of general \llvm memory model with presence of explicit atomic
+instructions this reduction cannot be used: suppose a memory location `x` is
+written while it is thread private and late address of `x` is written into
+visible location `y`. Now it might be possible, provided that `y` has
+weaker than release ordering, that the old value of `x` is accessed through `y`
+if `y` is flushed before `x`. For this reason, stores to all memory locations
+have to go through the store buffer (unless it is possible to prove that they
+can never be visible by more than one thread).
+
+\bigskip Furthermore, considering that all store buffers are reachable from all
+threads, and therefore any memory location which has entry in store buffer is
+considered public, we can apply the reduction proposed in \cite{SRB15} to `load`
+instructions, even under \llvm memory model. That is store buffer lookup can be
+bypassed for a memory location if it is considered private by \divine, because
+no memory location which is private can have entry in store buffer. This means
+that loads of private memory locations are no longer considered as visible
+actions by $\tau+$ which leads to state space reduction for programs with weak
+memory simulation.
 
 As a final optimization, any load from or store into local variable which never
 escapes scope of the function which allocated it need not be instrumented, that
@@ -1201,38 +1242,68 @@ optimizations proposed here can be found in \autoref{sec:res:wm:tau}.
 The transformation implementation consists of two passes over \llvm bitcode, the
 first one (written by Petr Ročkai) is used to split loads and stores larger than
 64 bits into smaller loads and stores. In the second phase (written by me),
-bitcode is instrumented with store buffers using functions which perform stores
-and loads into store buffer. These functions are implemented in C++ compiled
-together with the verified program by `divine compile`. The userspace functions
-can be found in `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the
-transformation pass can be found in `lart/weakmem/pass.cpp`. The transformation
-can be run using `lart` binary, see \autoref{sec:ap:lart} for detains on
-how to compile and run \lart.
+bitcode is modified so that instructions which perform stores, loads, and fences
+are replaced with functions which implement them using store buffer. These
+functions are implemented in C++ compiled together with the verified program by
+`divine compile`. The userspace functions can be found in
+`lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the transformation
+pass can be found in `lart/weakmem/pass.cpp`. The transformation can be run
+using `lart` binary, see \autoref{sec:ap:lart} for detains on how to compile and
+run \lart.
 
 ### Userspace Functions
 
-The userspace part of weak memory transformation consists of a variable which
-stores store buffer size limit, a data type which is used to represent atomic
-ordering, and functions which implement `load`, `store`, and `fence`
-instructions in weak memory simulation and replacements for `llvm.memcpy`,
-`llvm.memset`, and `llvm.memcopy` intrinsic functions.
+The userspace interface is described by `lart/userspace/weakmem.h`, which
+defines types and functions necessary for the transformation.
 
 ```{.c}
 volatile extern int __lart_weakmem_buffer_size;
+```
 
-enum __lart_weakmem_order;
+A store buffer size limit is saved in this variable so that it can be set by the
+weak memory transformation.
 
-/* instruction replacement functions */
+```{.c}
+enum __lart_weakmem_order {
+    __lart_weakmem_order_unordered,
+    __lart_weakmem_order_monotonic,
+    __lart_weakmem_order_acquire,
+    __lart_weakmem_order_release,
+    __lart_weakmem_order_acq_rel,
+    __lart_weakmem_order_seq_cst
+};
+```
+
+An enumeration type which corresponds to \llvm atomic orderings.
+
+```{.c}
 void __lart_weakmem_store( char *addr, uint64_t value,
             uint32_t bitwidth, __lart_weakmem_order ord );
 uint64_t __lart_weakmem_load( char *addr, uint32_t bitwidth,
             __lart_weakmem_order ord );
 void __lart_weakmem_fence( __lart_weakmem_order ord );
+```
 
-/* clenaup function */
+These functions replace `store`, `load`, and `fence` instructions. The
+transformation is expected to fill-in `bitwidth` parameter according to the
+actual bitwidth of the loaded/stored type and to perform necessary cast. Each of
+these functions is performed atomically using \divine atomic mask. Load function
+must be able to reconstruct loaded value from several entries in the store
+buffer as it is possible that some entry corresponds to a part of requested
+value only. While these functions are primarily intended to be used by the \lart
+transformation, their careful manual usage can be used to manually simulate weak
+memory model for a subset of operations only.
+
+```{.c}
 void __lart_weakmem_cleanup( int cnt, ... );
+```
 
-/* memory manipulation functions */
+This function is used to implement memory cleanup
+(\autoref{sec:trans:wm:cleanup}). Its variadic arguments are memory addresses
+which should be evicted from local store buffer, `cnt` should be set not the
+number of these addresses.
+
+```{.c}
 void __lart_weakmem_memmove( char *dest, const char *src,
                                           size_t n );
 void __lart_weakmem_memcpy( char *dest, const char *src,
@@ -1240,55 +1311,91 @@ void __lart_weakmem_memcpy( char *dest, const char *src,
 void __lart_weakmem_memset( char *dest, int c, size_t n );
 ```
 
-### Transformation
+These functions are used as replacements for `llvm.memcpy`, `llvm.memset`, and
+`llvm.memmove` intrinsics. The transformation pass will derive two versions of
+these functions, one to be used by the weak memory model implementation (this
+version must not use store buffers) and the other to implement these intrinsics
+in weak memory model.
 
-First it is necessary to detect which userspace functions should not be
-transformed. These are the functions used to implement store buffers, they are
-annotated with `lart.weakmem.bypass` using Clang attribute `annotate`.
-Furthermore it is essential that these functions do not call any functions which
-are transformed, for this reason they use attribute `flatten` which instructs
-compiler to inline all calls into the function. 
+\bigskip
+All of these functions have following attributes (using GCC syntax
+`__attribute__` which is understood by Clang):
 
+`noinline`
+~   to prevent inlining of these functions into their callers;
 
+`flatten`
+~   to inline all function calls these functions contain into their body (this
+    is used to make sure these functions do not call any function which would
+    use store buffer);
 
+`annotate("lart.weakmem.bypass")`
+~   which indicates to the transformation pass that these functions should not be
+    transformed to use store buffers;
 
+`annotate("lart.weakmem.propagate")`
+~   which indicates to the transformation pass that any call these functions
+    make should not be transformed to use store buffers (this is done to handle
+    cases in which compiler refuses to inline all calls into these functions,
+    the transformation pass will output warning if this happens).
 
+### \lart Transformation Pass
 
+The transformation pass processes the functions in the module one by one, for
+the weak memory implementation functions it only transforms calls to
+`llvm.memmove`, `llvm.memcpy`, and `llvm.memset` intrinsics to calls to their
+implementations which do not use store buffer simulation.
 
+For other functions the transformation is done in three phases.
 
+1)  Atomic compound instructions (`atomicrmw` and `cmpxchg`) are replaced by
+    their equivalents as described in \autoref{sec:trans:wm:atomic}.
+2)  Loads and stores are replaced by calls to appropriate userspace functions.
+    This includes casting of addresses to `i8*` \llvm type and values need to be
+    extended to respectively truncated from `i64` type. For non integral types
+    this also include bitcast to (from) integral types (a cast which does not
+    change bit pattern of the value, it changes only its type).
+    The atomic ordering used in weak memory simulation is derived from the
+    atomic ordering of the original instructions and from the default atomic
+    ordering for given instruction type which is determined by transformation
+    configuration.
+3)  Memory intrinsics (`llvm.memmove`, `llvm.memcpy`, `llvm.memset`) are
+    translated to appropriate userspace functions which implement these
+    operations using store buffers.
 
+The transformation is not applied to instructions which manipulate with local
+variables which do not escape scope of the function which defines them.
 
+The transformation is configurable in a sense that it can be specified what
+minimal atomic orderings are guaranteed for each instruction type and what
+should be the size bound for store buffers. The specification is given when
+\lart is invoked (see \autoref{sec:ap:lart}), it can be one of:
 
-More specifically we distinguish three kind of functions in our transformation:
-*TSO*, *SC*, and *bypass* --- TSO functions will be instrumented to use Total
-Store Order memory model, SC functions will be instrumented to use Sequential
-Consistency \TODO{co to znamená -> ono to neznamená, že by ta funkce viděla
-efekty okamžitě, ale že JEJÍ efekty jsou vidět okamžtě),
-and bypass functions will be left unchanged --- these are used to
-implement the store buffer simulation. These kinds can be assigned to functions
-either by the means of annotation attributes[^annot], or by specifying default
-function kind, which will be used for all functions without annotation (this can
-be either TSO, or SC).
+`std`
+~   for unconstrained \llvm memory model;
 
-[^annot]: For example `__attribute__((annotate("lart.weakmem.tso")))` should be
-added to function header for TSO function.
+`tso`
+~   for Total Store Order simulation, this guarantees that all loads have at
+    least acquire ordering, all stores have at least release ordering, and all
+    other operations have at least acquire-release ordering.
 
-The transformation of SC functions is the following: there is a memory barrier
-at the beginning of the function and after any call to function which is not
-known to be SC. No load or store transformation is necessary. For TSO functions,
-any load and store must be instrumented. This is done by replacing `load` and
-`store` instructions with calls to `__lart_weakmem_load_tso` and
-`__lart_weakmem_store_tso` --- these functions perform actual load or store
-using store buffer. Furthermore memory can be manipulated by the means of atomic
-instructions, that is `atomicrmw` (atomic read-modify-write) and `cmpxchg`
-(compare-and-swap), these are implemented by first flushing store buffer, and
-then executing the instruction without any modification --- this ensures
-sequential consistency required by these instructions \TODO{ne-SC varianty}.
-Finally memory barriers done by `fence` instruction are replaced by flushing
-store buffer and \llvm memory manipulating intrinsics[^llvmmmi] are replaced by
-functions which implement their functionality using store buffers.
+`x86`
+~   for simulation of memory model similar to the one in X86 CPUs, in this case,
+    loads have at least acquire ordering, stores have at least release ordering
+    and all other transformed operations have sequentially consistent ordering.
 
-[^llvmmmi]: These are `llvm.memcpy`, `llvm.memmove`, and `llvm.memset`.
+custom specification
+~   which is a comma list of `kind=ordering` pairs, where `kind` is an instruction
+    type, one of `all`, `load`, `store`, `cas`, `casfail`, `casok`, `armw`, and
+    `fence` and `ordering` is atomic ordering specification, one of `unordered`,
+    `relaxed`, `acquire`[^acq], `release`, `acq_rel`, and `seq_cst`. The list of
+    these pairs is processed left to right, the latter entries override former.
+
+    For example TSO can be specified as `all=acq_rel`, equivalent of `x86` can
+    be specified as `all=seq_cst,load=acquire,store=release`.
+
+[^acq]: In this case `relaxed` is used to denote \llvm's monotonic ordering to
+match the name used for this ordering in C++11/C11 standard.
 
 # Code Optimization in Formal Verification
 
