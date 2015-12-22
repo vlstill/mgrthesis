@@ -23,7 +23,7 @@ For model-checking tool to be useful to software developer it is important to
 minimize any extra effort the developer has to put into usage of such tool.
 Historically this effort was large --- older generations of verifiers such as
 \TODO{doplnit: SPIN, LTSmin,…} required manual translation of the verified
-program into a modelling language such as \TODO{promela,…}. With new generation
+program into a modeling language such as \TODO{promela,…}. With new generation
 of verifiers, such as \divine, CBMC, \TODO{…} special-purpose language for
 verification is no longer required --- these tools support direct verification
 of widely used programming languages such as C, C++, and Java, either directly
