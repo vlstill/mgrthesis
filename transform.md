@@ -1414,7 +1414,7 @@ use the optimization level requested by its user for program compilation.
 On the other hand, it is desirable to utilize \llvm optimizations in such a way
 that model checking can benefit from it. This, however, requires special purpose
 optimizations designed for verification, as the general purpose optimizations do
-not meet following two requirements critical for verification.
+not meet two critical requirements for verification.
 
 *   **They can change satisfiability of verified property.** This is usually
     caused by the fact that compiler optimizations are not required to preserve
@@ -1543,6 +1543,96 @@ An example of optimization with adverse effect on model checking.
 \label{fig:trans:opt:looprot}
 \endFigure
 
-# Atomic Blocks
+For these reasons, we suggest some optimization techniques which would allow
+optimization of \llvm IR but not change verification outcome or increase state
+space size. On the other hand, these techniques can use specific knowledge about
+he verification environment they will be used in. Some of these techniques were
+already implemented as part of this thesis and are evaluated in
+\autoref{sec:res:opt}, some of them are proposals for future work.
 
-# Nondeterminism Tracking
+## Constant Local Variable Elimination
+
+\label{sec:trans:opt:local}
+
+Especially with optimizations disabled compilers often create `alloca`
+instructions (which correspond to stack-allocated local variables) even for
+local variables which need not have address and perform loads and stores into
+those memory locations instead of keeping the value in registers. To eliminate
+unnecessary `alloca` instructions \llvm provides register promotion pass, but
+this pass is not well suited for model checking as it can add registers into the
+function and in this way increase state space size. For this reason we introduce
+a pass which eliminates *constant* local variables, as these can be eliminated
+without adding registers (actually, some registers can be removed in this case).
+
+In this case `alloca` instruction can be eliminated if the following conditions
+are met:
+
+*   the address of the memory is never accessed outside of the function;
+*   it is written only once;
+*   the `store` into the `alloca` dominates all `loads` from it.
+
+The first condition ensures that the `alloca` can be deleted, while the other
+two conditions ensure that the value which is loaded from it is always the same,
+and therefore can be replaced with the value which was stored into the memory
+location.
+
+In the current implementation of this pass each function is searched for
+`alloca` instructions which meet these criteria (ignoring uses of address in
+`llvm.dbg.declare` intrinsic[^dbg]), all uses of results of loads from these memory
+locations are replaced with the value which was originally stored into it, and
+finally the `alloca` and all its uses are eliminated from the function. Please
+note that the conditions ensure that only uses of the `alloca` are the single
+store into it, the loads which read it, and `llvm.dbg.declare` intrinsics.
+
+[^dbg]: This intrinsic is used to bind debugging information such as variable
+name with the variable's \llvm IR representation, it does not affect behavior of
+the program in any way.
+
+## Constant Global Variable Annotation
+
+\label{sec:trans:opt:global}
+
+In \divine any non-constant global variable is considered to be visible by all
+threads and is saved in each state in the state space. However, it can happen
+that this variable cannot be changed in the run of the program. If such a
+condition can be detected statically it is possible to set this variable to be
+constant which removes it from all states (it is stored in constants, which are
+part of the interpreter as they are constant for the entire run of the programs)
+and it also causes loads of this variable to be always considered to be
+invisible actions by $\tau+$ reduction.
+
+For a global variable to be made constant in this way it must meet the following
+conditions:
+
+*   it must be never written to, neither directly nor through any pointer;
+*   it must have constant initializer.
+
+While the second condition can be checked from the definition of the global,
+the first one cannot be exactly determined efficiently, but it can be
+approximated using pointer analysis.
+
+Currently \lart lacks working pointer analysis, so we use a simpler heuristic
+for the initial implementation: the address of the global variable must not
+be stored into any memory location and any value derived from the address must
+not be used in instructions which can store into it (`store`, `atomicrmw`,
+`cmpxchg`). This is implemented by recursively tracking all uses of the values
+derived from the global variable's address. The implementation is available in
+`lart/reduction/globals.cpp`.
+
+## Local Variable Zeroing
+
+\label{sec:trans:opt:lzero}
+
+## Terminating Loop Optimization
+
+\label{sec:trans:opt:loop}
+
+## Nondeterminism Tracking
+
+\label{sec:trans:opt:nondet}
+
+## Improving $\tau+$ Reduction With Pointer Analysis
+
+\label{sec:trans:opt:ptr}
+
+# Case Study: SV-COMP 2016

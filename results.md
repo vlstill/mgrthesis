@@ -1,6 +1,17 @@
 
-# Extensions of $\tau+$ Reduction \label{sec:res:tau}
+# Extensions of $\tau+$ Reduction
+
+\label{sec:res:tau}
+
+# \llvm IR Optimizations
+
+\label{sec:res:opt}
 
 # Weak Memory Models
 
-## $\tau+$ \label{sec:res:wm:tau}
+## State Space Reductions
+
+\label{sec:res:wm:tau}
+
+## Effects of Optimizations
+
