@@ -39,3 +39,12 @@ archive_README.md : appendix.md
 
 archive_README.pdf : archive_README.md
 	pandoc $< -o $@ -V geometry:a4paper,margin=2.5cm
+
+txt: $(ALL:.md=.txt)
+
+.PHONY: txt
+
+%.txt : %.md
+	sed -e ':a;N;$$!ba;s/\n\n/@NL@/g' $< | \
+		sed -e ':a;N;$$!ba;s/\n/ /g' -e 's/@NL@/\n\n/g' \
+			-e 's/\\autoref{[^}]*}//g' -e 's/\\//g' > $@
