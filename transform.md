@@ -29,9 +29,9 @@ We extended \divine with a new intrinsic function which implements well-known
 assume statement. If `__divine_assume` is executed with zero `value` it stops
 the interpreter and causes it to throw away current state. `__divine_assume` is
 useful for implementation of synchronization primitives, for example in weak
-memory model simulation (see \autoref{sec:trans:wm:cleanup}). This function would
-should be used primarily by \divine developers, it combines well with atomic
-masks to create conditional transitions in state space.
+memory model simulation (see \autoref{sec:trans:wm}). This function should be
+used primarily by \divine developers, it combines well with atomic masks to
+create conditional transitions in state space.
 
 ## Silent Instructions Support
 
@@ -385,7 +385,7 @@ function `atExits` is available in the same header file.
 
 When enriching \llvm bitcode in a way which modifies local variables it is
 often necessary to perform cleaning operation at the end of the scope of these
-variables. One of these cases is mentioned in \autoref{sec:extend:wm:invstore},
+variables. One of these cases is mentioned in \autoref{sec:trans:wm:cleanup},
 another can arise from compiled-in abstractions proposed in \cite{RockaiPhD}.
 These variable cleanups are essentially akin to C++ destructors in a sense that
 they get executed at the end of the scope of the variable, no matter how this
@@ -1138,7 +1138,7 @@ ordering.
 
 ## Memory Cleanup
 
-\label{sec:trans:wm:clenaup}
+\label{sec:trans:wm:cleanup}
 
 When a write to a certain memory location is delayed it can happen that this
 memory location becomes invalid before the delayed write is actually performed.
@@ -1435,7 +1435,53 @@ not meet following two requirements critical for verification.
 
 \begFigure[tp]
 
+```{.cpp}
+int x;
+void foo() {
+    x = 1;
+    assert( x == 1 );
+}
+int main() {
+    std::thread t( &foo );
+    x = 2;
+    t.join();
+}
+```
+
+This code is an example of undefined behavior, the global non-atomic variable
+`x` is being written concurrently from two threads.  For this program assertion
+safety does not hold, the assertion can be violated if the assignment `x = 2`
+executes between `x = 1` and `assert( x == 1 )`.
+
+
+```{.llvm}
+store i32 1, i32* @x, align 4
+%0 = load i32, i32* @x, align 4
+%tobool = icmp ne i32 %0, 0
+%conv = zext i1 %tobool to i32
+call void @__divine_assert(i32 %conv)
+ret void
+```
+
+The body of `foo` emitted by Clang without any optimization is straightforward
+translation of the C++ code, it stores into global `@x`, then loads it and
+compares the loaded value to `0`. In this case \divine will report assertion
+violation.
+
+```{.llvm}
+store i32 1, i32* @x, align 4
+tail call void @__divine_assert(i32 1)
+ret void
+```
+
+This is optimized (`-O2`) version of `foo`, `store` is still present, but the
+compiler assumes that the `load` which should follow it will return the save
+value as written immediately before it (this is valid assumption for non-atomic,
+non-volatile shared variable). For this reason the assertion is optimized into
+`assert( true )` and no assertion violation is possible.
+
 \begCaption
+An example of program in which optimizations change property satisfiability.
 \endCaption
 \label{fig:trans:opt:undef}
 \endFigure
