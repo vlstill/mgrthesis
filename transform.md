@@ -918,7 +918,7 @@ instruction.
 
 ```{.cpp .numberLines}
 int x;
-std::atomic< true > a;
+std::atomic< bool > a;
 
 void thread1() {
     x = 42;
@@ -930,8 +930,284 @@ void thread2() {
     std::cout << x << std::endl; // always prints 42
 }
 ```
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{false}};
 
-\TODO{obrázek}
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) -- (-1,-4);
+  \draw [-] (0,-4) -- (8,-4);
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-0.25) -- (-4, -0.25);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+1.  Before the first instruction is executed `@x` is initiated to 0 and `@a` to
+    `false`. Now thread 0 executes the first instructin, the store will be
+    performed into store buffer.
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{false}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) rectangle (-1,-5);
+  \draw [-] (0,-4) -- (8,-4);
+  \draw [-] (-9,-4) -- (-9,-5);
+  \draw [-] (-7,-4) -- (-7,-5);
+  \draw [-] (-6,-4) -- (-6,-5);
+
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-4.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-4.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-4.5)  {\texttt{Unordered}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-0.75) -- (-4, -0.75);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+2.  After the first instruction of thread 0, its store buffer contains entry
+    with address of the stored memory location, the stored value, its bitwidth,
+    and memory ordering used for the store.
+
+\endFigure
+
+\begFigure[p]
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{false}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) rectangle (-1,-6);
+  \draw [-] (-10,-5) -- (-1,-5);
+  \draw [-] (0,-4) -- (8,-4);
+  \draw [-] (-9,-4) -- (-9,-6);
+  \draw [-] (-7,-4) -- (-7,-6);
+  \draw [-] (-6,-4) -- (-6,-6);
+
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-4.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-4.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-4.5)  {\texttt{Unordered}};
+  \node () [anchor=west] at (-10,-5.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-5.5)  {\texttt{Release}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-1.75) -- (-4, -1.75);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+3.  Second entry is appended to the store buffer. If first instruction of thread
+    1 executed now, it would read `false` from the memory.
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) rectangle (-1,-6);
+  \draw [-] (-10,-5) -- (-1,-5);
+  \draw [-] (0,-4) -- (8,-4);
+  \draw [-] (-9,-4) -- (-9,-6);
+  \draw [-] (-7,-4) -- (-7,-6);
+  \draw [-] (-6,-4) -- (-6,-6);
+
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-4.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-4.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-4.5)  {\texttt{Unordered}};
+  \node () [anchor=west] at (-10,-5.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-5.5)  {\texttt{Release, flushed}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-1.75) -- (-4, -1.75);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+\end{tikzpicture}
+
+4.  The entry for `@a` in store buffer of thread 0 is flushed into memmory, but
+    the entry is still remembered in the store buffer as it is release entry and
+    future loads (it they have at least acquire ordering) will have to
+    synchronize with it.
+
+\begCaption
+\endCaption
+\label{fig:trans:wm:simple}
+\endFigure
+
+\begFigure[p]
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) rectangle (-1,-6);
+  \draw [-] (-10,-5) -- (-1,-5);
+  \draw [-] (0,-4) -- (8,-4);
+  \draw [-] (-9,-4) -- (-9,-6);
+  \draw [-] (-7,-4) -- (-7,-6);
+  \draw [-] (-6,-4) -- (-6,-6);
+
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-4.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-4.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-4.5)  {\texttt{Unordered}};
+  \node () [anchor=west] at (-10,-5.5)  {\color{red}\texttt{@a}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-5.5)  {\color{red}\texttt{Release, flushed}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-1.75) -- (-4, -1.75);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load {\color{red}@a acquire}}};
+  \draw [->] (3, -0.5) -- (3.5, -0.5);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+\end{tikzpicture}
+
+5.  When the first instruction of thread 1 is executed synchronization takes
+    place. The acquire load on `@a` forces the matching flushed entry in store
+    buffer of thread 0 to be evicted, however, this is a release entry so all
+    entries which precede it will be flushed and evicted too.
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{42}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-4) -- (-1,-4);
+  \draw [-] (0,-4) -- (8,-4);
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
+  \draw [->] (-4.5,-1.75) -- (-4, -1.75);
+  \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
+
+  \node () [] at (3, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-2);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
+  \draw [->] (3, -0.75) -- (3.5, -0.75);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
+\end{tikzpicture}
+
+6.  The load of `@a` in thread 1 now proceeds, load of `@x` will always return
+    `42` as there is synchronizes-with edge between release store and acquire
+    load of `@a` and therefore all action of thread 0 before the store of `@a`
+    are visible after the load of `@a` returns the stored value.
 
 \begCaption
 \endCaption
