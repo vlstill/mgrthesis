@@ -909,10 +909,11 @@ explicit synchronization their relative order can be arbitrary as they are not
 dependent. Similar argumentation can be applied to load and fence instructions
 and for total ordering of all monotonic accesses to a single memory location.
 
-\autoref{fig:trans:wm:simple} demonstrates store buffer approximation of \llvm
+Figures \ref{fig:trans:wm:simple1}, \ref{fig:trans:wm:simple2}, and
+\ref{fig:trans:wm:simple3} demonstrate store buffer approximation of \llvm
 memory model for the case of simple shared variables, one of which is accessed
-atomically. \autoref{fig:trans:wm:fence} shows an illustration with `fence`
-instruction.
+atomically. Figures \ref{fig:trans:wm:fence1}, \ref{fig:trans:wm:fence2}, and
+\ref{fig:trans:wm:fence3} show an illustration with `fence` instruction.
 
 \begFigure[p]
 
@@ -920,16 +921,22 @@ instruction.
 int x;
 std::atomic< bool > a;
 
-void thread1() {
+void thread0() {
     x = 42;
     a.store( true, std::memory_order_release );
 }
 
-void thread2() {
+void thread1() {
     while ( !a.load( std::memory_order_acquire ) { }
     std::cout << x << std::endl; // always prints 42
 }
 ```
+
+This is an example of two threads which communicate using shared global variable
+`x` which is guarded by atomic global variable `a`. Following is a simplified
+execution of this programs (only `load` and `store` instructions are shown).
+
+\bigskip
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
                    , semithick
                    , scale=0.7
@@ -964,8 +971,8 @@ void thread2() {
 \end{tikzpicture}
 
 1.  Before the first instruction is executed `@x` is initiated to 0 and `@a` to
-    `false`. Now thread 0 executes the first instructin, the store will be
-    performed into store buffer.
+    `false`. Store buffers are empty. Now thread 0 executes the first
+    instruction, the store will be performed into store buffer.
 
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
                    , semithick
@@ -1012,6 +1019,8 @@ void thread2() {
     with address of the stored memory location, the stored value, its bitwidth,
     and memory ordering used for the store.
 
+\caption{Example of weak memory model simulation with store buffer, part I.}
+\label{fig:trans:wm:simple1}
 \endFigure
 
 \begFigure[p]
@@ -1063,7 +1072,8 @@ void thread2() {
 \end{tikzpicture}
 
 3.  Second entry is appended to the store buffer. If first instruction of thread
-    1 executed now, it would read `false` from the memory.
+    1 executed now, it would read `false` from the memory and the cycle would
+    be repeated.
 
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
                    , semithick
@@ -1110,14 +1120,15 @@ void thread2() {
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
 \end{tikzpicture}
 
-4.  The entry for `@a` in store buffer of thread 0 is flushed into memmory, but
+4.  The entry for `@a` in store buffer of thread 0 is flushed into memory, but
     the entry is still remembered in the store buffer as it is release entry and
     future loads (it they have at least acquire ordering) will have to
-    synchronize with it.
+    synchronize with it. It would be also possible to first flush entry for
+    `@x`, but in this case it would be removed from the store buffer as it is
+    the oldest entry, and therefore no explicit synchronization is necessary.
 
-\begCaption
-\endCaption
-\label{fig:trans:wm:simple}
+\caption{Example of weak memory model simulation with store buffer, part II.}
+\label{fig:trans:wm:simple2}
 \endFigure
 
 \begFigure[p]
@@ -1167,10 +1178,10 @@ void thread2() {
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
 \end{tikzpicture}
 
-5.  When the first instruction of thread 1 is executed synchronization takes
+5.  When the first instruction of thread 1 is executed, synchronization takes
     place. The acquire load on `@a` forces the matching flushed entry in store
     buffer of thread 0 to be evicted, however, this is a release entry so all
-    entries which precede it will be flushed and evicted too.
+    entries which precede it will have to be flushed and evicted too.
 
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
                    , semithick
@@ -1209,9 +1220,8 @@ void thread2() {
     load of `@a` and therefore all action of thread 0 before the store of `@a`
     are visible after the load of `@a` returns the stored value.
 
-\begCaption
-\endCaption
-\label{fig:trans:wm:simple}
+\caption{Example of weak memory model simulation with store buffer, part III.}
+\label{fig:trans:wm:simple3}
 \endFigure
 
 \begFigure[p]
@@ -1220,12 +1230,13 @@ void thread2() {
 int x;
 std::atomic< true > a;
 
-void thread1() {
+void thread0() {
     x = 42;
-    a.store( true, std::memory_order_release );
+    std::atomic_thread_fence( std::memory_order_release );
+    a.store( true, std::memory_order_monotonic );
 }
 
-void thread2() {
+void thread1() {
     while ( !a.load( std::memory_order_relaxed ) { }
     std::cout << x << std::endl; // can print 0 or 42
     std::atomic_thread_fence( std::memory_order_acquire );
@@ -1233,11 +1244,238 @@ void thread2() {
 }
 ```
 
-\TODO{obrázek}
+This example is similar to the one in \autoref{fig:trans:wm:simple1}, however,
+it uses explicit fences to synchronize access to the global variable `x`.
 
-\begCaption
-\endCaption
-\label{fig:trans:wm:fence}
+\bigskip
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{false}};
+
+  \node () [anchor=west] at (-10,-4.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-4.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-5) rectangle (-0.4,-8);
+  \draw [-] (-10,-6) -- (-0.4,-6) (-10,-7) -- (-0.4,-7);
+  \draw [-] (-9,-5) -- (-9,-6) (-9,-7) -- (-9,-8);
+  \draw [-] (-7,-5) -- (-7,-6) (-7,-7) -- (-7,-8);
+  \draw [-] (-6,-5) -- (-6,-6) (-6,-7) -- (-6,-8);
+
+  \draw [-] (0,-5) -- (8,-5);
+
+  \node () [anchor=west] at (-10,-5.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-5.5)  {\texttt{Unordered}};
+
+  \node () [anchor=west] at (-10,-6.5)  {\texttt{Fence: Release}};
+
+  \node () [anchor=west] at (-10,-7.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-9,-7.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-7.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-7.5)  {\texttt{Monotonic, flushed}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-5,0) -- (-5,-3.25);
+  \node () [anchor=west] at (-4.5, -0.5) {\texttt{store @x 42}};
+  \node () [anchor=west] at (-4.5, -1.5) {\texttt{fence release}};
+  \node () [anchor=west] at (-4.5, -2.5) {\texttt{store @a true monotonic}};
+  \draw [->] (-5,-2.75) -- (-4.5, -2.75);
+
+  \node () [] at (3.5, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-3.25);
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
+  \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+1.  After all instructions of thread 0 execute the store buffer contains two
+    store entries and one fence entry which corresponds to the fence on line 6.
+
+\caption{Example of weak memory model with fences, part I.}
+\label{fig:trans:wm:fence1}
+\endFigure
+
+\begFigure[p]
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-4.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-4.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-5) rectangle (-0.4,-8);
+  \draw [-] (-10,-6) -- (-0.4,-6) (-10,-7) -- (-0.4,-7);
+  \draw [-] (-9,-5) -- (-9,-6) (-9,-7) -- (-9,-8);
+  \draw [-] (-7,-5) -- (-7,-6) (-7,-7) -- (-7,-8);
+  \draw [-] (-6,-5) -- (-6,-6) (-6,-7) -- (-6,-8);
+
+  \draw [-] (0,-5) -- (8,-5);
+
+  \node () [anchor=west] at (-10,-5.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-5.5)  {\texttt{Unordered}};
+
+  \node () [anchor=west] at (-10,-6.5)  {\texttt{Fence: Release}};
+
+  \node () [anchor=west] at (-10,-7.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-9,-7.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-7.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-7.5)  {\texttt{Monotonic, flushed}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-5,0) -- (-5,-3.25);
+  \node () [anchor=west] at (-4.5, -0.5) {\texttt{store @x 42}};
+  \node () [anchor=west] at (-4.5, -1.5) {\texttt{fence release}};
+  \node () [anchor=west] at (-4.5, -2.5) {\texttt{store @a true monotonic}};
+  \draw [->] (-5,-2.75) -- (-4.5, -2.75);
+
+  \node () [] at (3.5, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-3.25);
+  \draw [->] (3, -0.25) -- (3.5, -0.25);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
+  \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+
+2.  The last entry from the store buffer is flushed, but the entry remains in
+    the store buffer as it is preceded by a release entry.
+
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-4.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-4.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-5) rectangle (-0.4,-8);
+  \draw [-] (-10,-6) -- (-0.4,-6) (-10,-7) -- (-0.4,-7);
+  \draw [-] (-9,-5) -- (-9,-6) (-9,-7) -- (-9,-8);
+  \draw [-] (-7,-5) -- (-7,-6) (-7,-7) -- (-7,-8);
+  \draw [-] (-6,-5) -- (-6,-6) (-6,-7) -- (-6,-8);
+
+  \draw [-] (0,-5) -- (8,-5);
+
+  \node () [anchor=west] at (-10,-5.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-9,-5.5)  {\texttt{42}};
+  \node () [anchor=west] at (-7,-5.5)  {\texttt{32}};
+  \node () [anchor=west] at (-6,-5.5)  {\texttt{Unordered}};
+
+  \node () [anchor=west] at (-10,-6.5)  {\texttt{Fence: Release, observed by 1}};
+
+  \node () [anchor=west] at (-10,-7.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-9,-7.5)  {\texttt{true}};
+  \node () [anchor=west] at (-7,-7.5)  {\texttt{8}};
+  \node () [anchor=west] at (-6,-7.5)  {\texttt{Monotonic, flushed}};
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-5,0) -- (-5,-3.25);
+  \node () [anchor=west] at (-4.5, -0.5) {\texttt{store @x 42}};
+  \node () [anchor=west] at (-4.5, -1.5) {\texttt{fence release}};
+  \node () [anchor=west] at (-4.5, -2.5) {\texttt{store @a true monotonic}};
+  \draw [->] (-5,-2.75) -- (-4.5, -2.75);
+
+  \node () [] at (3.5, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-3.25);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \draw [->] (3, -1.25) -- (3.5, -1.25);
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
+  \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+3.  The monotonic load of `@a` executes, the value is already flushed into the
+    memory and the load does not cause any synchronization. It does, however,
+    add observed flag with thread ID of the thread which performed the load to
+    any at least release barrier which precedes store buffer entry for `@a`. The
+    observed flag would be also added to any release (or stronger) store entries
+    which precede the store entry for `@a` and to the entry for `@a` if it was
+    release or stronger.
+
+\caption{Example of weak memory model with fences, part II.}
+\label{fig:trans:wm:fence2}
+\endFigure
+
+\begFigure[tp]
+\begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                   , semithick
+                   , scale=0.7
+                   ]
+  \draw [-] (-10,0) -- (-6,0) -- (-6,-2) -- (-10,-2) -- (-10,0);
+  \draw [-] (-10,-1) -- (-6,-1);
+  \draw [-] (-8,0) -- (-8,-2);
+  \node () [anchor=west] at (-10,0.5) {main memory};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@a}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{42}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{true}};
+
+  \node () [anchor=west] at (-10,-4.5) {store buffer for thread 0};
+  \node () [anchor=west] at (0,-4.5) {store buffer for thread 1};
+
+  \draw [-] (-10,-5) -- (-0.4,-5);
+
+  \draw [-] (0,-5) -- (8,-5);
+
+  \node () [] at (-4.5, 0.5) {thread 0};
+  \draw [->, dashed] (-5,0) -- (-5,-3.25);
+  \node () [anchor=west] at (-4.5, -0.5) {\texttt{store @x 42}};
+  \node () [anchor=west] at (-4.5, -1.5) {\texttt{fence release}};
+  \node () [anchor=west] at (-4.5, -2.5) {\texttt{store @a true monotonic}};
+  \draw [->] (-5,-2.75) -- (-4.5, -2.75);
+
+  \node () [] at (3.5, 0.5) {thread 1};
+  \draw [->, dashed] (3,0) -- (3,-3.25);
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
+  \draw [->] (3, -2.25) -- (3.5, -2.25);
+  \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
+
+\end{tikzpicture}
+
+4.  The fence executes, it is an acquire fence so it synchronizes with any (at
+    least) release fence which was observed by the thread which executed the
+    release fence (thread 1). This means that all entries before the release
+    fences has to be flushed and evicted and the fence is flushed and evicted
+    too. Finally, as store entry for `@a` was already flushed and it would be
+    first entry in store buffer after the fence is evicted, it is also evicted.
+    The load of `@x` will always return `42`.
+
+\caption{Example of weak memory model with fences, part III.}
+\label{fig:trans:wm:fence3}
 \endFigure
 
 ## Nondeterministic Flushing
