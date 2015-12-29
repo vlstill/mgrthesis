@@ -6,12 +6,22 @@ all : thesis.pdf archive_README.pdf
 thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl
 	./latexwrap $<
 
-thesis.bbl : bibliography.bib thesis.bcf
-	-biber thesis
+thesis-print.pdf : thesis-print.tex $(ALL:.md=.tex) thesis-print.bbl
+	./latexwrap $<
 
-thesis.bcf :
-	./latexwrap -n1 $<
+thesis-print.tex : thesis.tex
+	sed -e 's/linkcolor={.*}/linkcolor={black}/' \
+		-e 's/citecolor={.*}/citecolor={black}/' \
+		-e 's/urlcolor={.*}/urlcolor={black}/' \
+		$< > $@
 
+%.bbl : bibliography.bib %.bcf
+	-biber $(@:.bbl=)
+
+%.bcf :
+	./latexwrap -n1 $(@:.bcf=.tex)
+
+.PRECIOUS: %.bcf %.bbl
 
 %.tex : %.md
 	pandoc $< -o $@
