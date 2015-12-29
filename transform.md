@@ -137,12 +137,17 @@ action which would be considered observable by $\tau+$ in-between).
 The same argumentation can be applied to more than two independent loads from a
 single thread.
 
+Furthermore, the reduction can be extended to sequence of independent loads
+followed by a store into memory location distinct from all the memory locations
+of the loads. \TODO{zduvodnit}.
+
 To implement this reduction \divine now tracks which memory objects were loaded
 while it generates a state. If a memory object is loaded for the first time, its
 address is saved and this load is not considered to be observable. If the same
-object is to be loaded for the second time during generation of the state the
-state is emitted just before this load. This reduction is now enabled by
-default, the original behavior can be obtained by option
+object is to be accessed for the second time during generation of the state the
+state is emitted just before this access. If an object is to be loaded after a new
+value was stored into it a state is emitted before this load too. This reduction
+is now enabled by default, the original behavior can be obtained by option
 `--reduce=tau++,taustores` to `divine verify` command (the extended reduction
 can be explicitly enabled by `tauloads` key in `reduce` option).
 
@@ -1535,6 +1540,9 @@ This will be transformed into:
 %0 = call i32 @__divine_interrupt_mask()
 %atomicrmw.shouldunlock = icmp eq i32 %3, 0
 %atomicrmw.orig = load atomic ty, ty* %ptr ordering
+; explicit synchronization
+%1 = bitcast ty * %ptr to i8*
+call void @__lart_weakmem_sync(i8* %1, i32 width, i32 ordering)
 ; the instruction used here depends on op:
 %opval = op %atomicrmw.orig %value
 store atomic ty %opval, ty* %ptr seq_cst
@@ -1564,7 +1572,8 @@ selected using `select` instruction):
 
 \begCaption An example of transformation of `atomicrmw` instruction into
 equivalent sequence of instructions which is executed atomically using
-`__divine_interrupt_mask`.
+`__divine_interrupt_mask` and synchronizes strongly with other operations using
+`__lart_weakmem_sync`.
 \endCaption
 \label{fig:trans:wm:atomicrmw}
 \endFigure
@@ -1604,19 +1613,23 @@ This will be transformed into:
 %0 = call i32 @__divine_interrupt_mask()
 %cmpxchg.shouldunlock = icmp eq i32 %6, 0
 %cmpxchg.orig = load atomic ty, ty* %ptr failure_ordering
+%1 = bitcast ty * %ptr to i8*
+call void @__lart_weakmem_sync(i8* %1, i32 bitwidth,
+                               i32 failure_ordering)
 %cmpxchg.eq = icmp eq i64 %cmpxchg.orig, %cmp
 br i1 %cmpxchg.eq,
     label %cmpxchg.ifeq,
     label %cmpxchg.end
 
 cmpxchg.ifeq:
-fence success_ordering
+call void @__lart_weakmem_sync(i8* %1, i32 bitwidth,
+                               i32 success_ordering)
 store atomic ty %new, ty* %ptr success_ordering
 br label %cmpxchg.end
 
 cmpxchg.end:
-%1 = insertvalue { ty, i1 } undef, ty %cmpxchg.orig, 0
-%res = insertvalue { ty, i1 } %1, i1 %cmpxchg.eq, 1
+%2 = insertvalue { ty, i1 } undef, ty %cmpxchg.orig, 0
+%res = insertvalue { ty, i1 } %2, i1 %cmpxchg.eq, 1
 br i1 %cmpxchg.shouldunlock,
     label %cmpxchg.unmask,
     label %cmpxchg.continue
@@ -1631,7 +1644,8 @@ cmpxchg.continue:
 
 \begCaption An example of transformation of `cmpxchg` instruction into
 equivalent sequence of instructions which is executed atomically using
-`__divine_interrupt_mask`.
+`__divine_interrupt_mask` and synchronizes strongly with other operations using
+`__lart_weakmem_sync`.
 \endCaption
 \label{fig:trans:wm:atomic:cmpxchg}
 \endFigure
@@ -2151,4 +2165,4 @@ derived from the global variable's address. The implementation is available in
 
 \label{sec:trans:opt:ptr}
 
-# Case Study: SV-COMP 2016
+# Transformations for SV-COMP 2016
