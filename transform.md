@@ -2149,20 +2149,114 @@ not be used in instructions which can store into it (`store`, `atomicrmw`,
 derived from the global variable's address. The implementation is available in
 `lart/reduction/globals.cpp`.
 
-## Local Variable Zeroing
+## Local Variable and Register Zeroing
 
 \label{sec:trans:opt:lzero}
+
+
 
 ## Terminating Loop Optimization
 
 \label{sec:trans:opt:loop}
 
+In \divine a loop will generate state at least once an iteration. This is caused
+by heuristics which makes sure state generation terminates. However, if the
+loop performs no visible action and always terminates, it is possible to run it
+atomically. This way the entire loop is merged into one action, which leads to
+further reduction of state space.
+
+This reduction is not implemented yet, however, to implement it, it would be
+necessary to have the following components:
+
+1.  loop detection, this is possible using \llvm's `LoopAnalysis`;
+2.  termination analysis for \llvm loops, which requires recovering of loop
+    condition from \llvm IR and could employ some existing heuristic to this
+    problem;
+3.  pointer analysis to detect if loop accesses any variable which is (or might
+    be accessible from other threads); it is also possible to use
+    `__divine_is_private` to detect visibility dynamically, or combine these
+    approaches.
+
 ## Nondeterminism Tracking
 
 \label{sec:trans:opt:nondet}
 
-## Improving $\tau+$ Reduction With Pointer Analysis
+\divine is an explicit state model checker and it does not handle data
+nondeterminism well. Nevertheless, data nondeterminism is often useful, for
+example to simulate input or random number generation by a variable which can
+have arbitrary value from some range. The only way to simulate such
+nondeterminism in \divine is to enumerate possibilities explicitly, using
+`__divine_choice`. This of course can lead to large state space, as it causes
+branching of the size of the argument of `__divine_choice`.
 
-\label{sec:trans:opt:ptr}
+Nevertheless, for small domains, this handling of nondeterminism is quite
+efficient, as it does not require any symbolic data. This way, `__divine_choice`
+is used for example to simulate failure of `malloc`: `malloc` can return `NULL`
+if allocation is not possible and \divine simulates this in such a way that any
+call to `malloc` nondeterministically branches into two possibilities, either
+`malloc` succeeds and returns memory, or it fails. Similarly, weak memory model
+simulation (\autoref{sec:trans:wm}) uses nondeterministic choice to determine
+which entry of store buffer should be flushed.
+
+For verification of real-world programs it is useful to be able to constrain
+nondeterminism which can occur in them, for example as a result of call of
+`rand` function, which returns random number from some interval, usually from
+$0$ to $2^{31} - 1$. Such a nondeterminism is too large to be handled
+explicitly, but it often occurs in patterns like `rand() % N` for some fixed and
+usually small number `N`. In these cases it is sufficient to replace `rand() %
+N` with `__divine_choice( N )` which might be tractable for sufficiently small
+`N`.
+
+To automate this replacement at least in some cases a \llvm pass which tracks
+nondeterministic value and constraints the nondeterministic choice to smallest
+possible interval can be created. A very simple implementation of such pass,
+which tracks nondeterminism only inside one function and recognizes two
+patterns, cast to `bool` and modulo constant number, can be found in
+`lart/svcomp/svcomp.cpp`, class `NondetTracking`. For a more complete
+implementation a limited symbolic execution of part of the program which uses the
+nondeterministic value could be used, but this is not implemented.
 
 # Transformations for SV-COMP 2016
+
+SV-COMP is competition of software verifiers associated with TACAS conference
+\cite{SVCOMP}. It provides a set of benchmarks in several categories, benchmarks
+are written in C. \divine is participating in SV-COMP 2016 in the concurrency
+category which contains several hundred of short parallel C programs. Some of
+these programs have infinite state space (usually infinite number of threads),
+or use nondeterministic data heavily an therefore are not tractable by \divine,
+but there are many programs which can be verified by \divine, with some minor
+tweaks.
+
+In order to make it possible to verify SV-COMP's programs with \divine, they
+have to be pre-processed, as they use some SV-COMP-specific functions and rely
+on certain assumptions about semantics of C which is not always met when C is
+compiled to \llvm.
+
+1.  The benchmark is compiled using `divine compile`.
+
+2.  Using \lart, atomic sections used in SV-COMP are replaced with \divine's
+    atomic sections which use `__divine_interrupt_mask`.
+
+3.  Using \lart, all reads and writes to global variables defined in the
+    benchmark are set to be volatile. This is done because SV-COMP models often
+    contain undefined behavior such as concurrent access to non-volatile,
+    non-atomic variable which could be optimized improperly for SV-COMP. This
+    pass actually hides errors in SV-COMP benchmarks, but it is necessary as
+    SV-COMP benchmarks assume any use of shared variable will cause load from
+    it, which is not required by C standard.
+
+4.  \llvm optimizations are run, using \llvm `opt` with `-Oz` (optimizations for
+    binary size).
+
+5.  Nondeterminism tracking (\autoref{sec:trans:opt:nondet} is used.
+
+6.  \lart is used to disable `malloc` nondeterministic failure as SV-COMP
+    assumes that `malloc` never fails.
+
+7.  Finally, \divine is run on the program with Context-Switch-Directed
+    Reachability \cite{SRB14} algorithm and assertion violation is reported if
+    there is any. Other errors are not reported.
+
+With these transformations, \divine is expected to score more than 900 points out of
+1222 total and a report describing our approach is to appear in TACAS
+proceedings \cite{SRB16svc}.
