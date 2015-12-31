@@ -719,10 +719,10 @@ void thread1() {
   \draw [-] (-10,-1) -- (-6,-1);
   \draw [-] (-8,0) -- (-8,-2);
   \node () [anchor=west] at (-10,0.5) {main memory};
-  \node () [anchor=west] at (-10,-0.5)  {\texttt{0x04}};
-  \node () [anchor=west] at (-8,-0.5)  {\texttt{0x08}};
-  \node () [anchor=west] at (-10,-1.5)  {\texttt{x = 0}};
-  \node () [anchor=west] at (-8,-1.5)  {\texttt{y = 0}};
+  \node () [anchor=west] at (-10,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-8,-0.5)  {\texttt{@x}};
+  \node () [anchor=west] at (-10,-1.5)  {\texttt{0}};
+  \node () [anchor=west] at (-8,-1.5)  {\texttt{0}};
 
   \node () [anchor=west] at (-10,-3.5) {store buffer for thread 0};
   \node () [anchor=west] at (0,-3.5) {store buffer for thread 1};
@@ -734,28 +734,28 @@ void thread1() {
   \draw [-] (2,-4) -- (2,-5);
   \draw [-] (4,-4) -- (4,-5);
 
-  \node () [anchor=west] at (-10,-4.5)  {\texttt{0x08}};
+  \node () [anchor=west] at (-10,-4.5)  {\texttt{@y}};
   \node () [anchor=west] at (-8,-4.5)  {\texttt{1}};
   \node () [anchor=west] at (-6,-4.5)  {\texttt{32}};
 
-  \node () [anchor=west] at (0,-4.5)  {\texttt{0x04}};
+  \node () [anchor=west] at (0,-4.5)  {\texttt{@x}};
   \node () [anchor=west] at (2,-4.5)  {\texttt{1}};
   \node () [anchor=west] at (4,-4.5)  {\texttt{32}};
 
   \node () [] at (-4, 0.5) {thread 0};
   \draw [->] (-4,0) -- (-4,-2);
-  \node () [anchor=west] at (-3.5, -0.5) {\texttt{store y 1;}};
-  \node () [anchor=west] at (-3.5, -1.5) {\texttt{load x;}};
+  \node () [anchor=west] at (-3.5, -0.5) {\texttt{store @y 1;}};
+  \node () [anchor=west] at (-3.5, -1.5) {\texttt{load @x;}};
 
   \node () [] at (2, 0.5) {thread 1};
   \draw [->] (2,0) -- (2,-2);
-  \node () [anchor=west] at (2.5, -0.5) {\texttt{store x 1;}};
-  \node () [anchor=west] at (2.5, -1.5) {\texttt{load y;}};
+  \node () [anchor=west] at (2.5, -0.5) {\texttt{store @x 1;}};
+  \node () [anchor=west] at (2.5, -1.5) {\texttt{load @y;}};
 
-  \draw [->, dashed] (-0.5,-0.5) to[in=0, out=0] (-4,-4.5);
-  \draw [->, dashed] (-9,-2) to[in=0, out=-90, out looseness=0.7] (-1.3,-1.5);
-  \draw [->, dashed] (5.5,-0.5) to[in=0, out=0] (6,-4.5);
-  \draw [->, dashed] (-7,-2) to[in=0, out=-90, out looseness=0.5] (4.7,-1.5);
+  \draw [->, dashed] (0,-0.5) to[in=0, out=0] (-4,-4.5);
+  \draw [->, dashed] (-9,-2) to[in=0, out=-90, out looseness=0.7] (-1, -1.5);
+  \draw [->, dashed] (6,-0.5) to[in=0, out=0] (6,-4.5);
+  \draw [->, dashed] (-7,-2) to[in=0, out=-90, out looseness=0.5] (5,-1.5);
 
 \end{tikzpicture}
 \end{center}
