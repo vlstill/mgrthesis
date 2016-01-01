@@ -2153,7 +2153,47 @@ derived from the global variable's address. The implementation is available in
 
 \label{sec:trans:opt:lzero}
 
+\llvm registers are immutable and therefore they retain their value even after
+it is no longer useful. This means that there can be states in the state space
+which differ only in a value of a register which does not change the execution
+of the program as it will be never used again. This situation can be eliminated
+by setting the no-longer-used registers to 0, however, this is not possible in
+pure \llvm as it is in static single assignment form.
 
+Nevertheless, with addition of one intrinsic function, `__divine_drop_register`,
+into the \divine's \llvm interpreter, it is possible to zero registers in
+\divine at the place determined by the call to this intrinsic. Since \llvm is
+type safe, this intrinsic is actually implemented as a family of functions with
+`__divine_drop_register.` prefix, one for each type of register which needs to
+be zeroed. Signatures for these functions are generated automatically by \lart
+pass which perform register zeroing.
+
+The \lart pass (which is implemented in `lart/reduce/register.cpp`) processes
+each function with the following algorithm.
+
+1.  For each instruction $i$, it searches for last uses:
+    *   this is either a use $u$ such that no other use of $i$ is reachable from
+        $u$;
+    *   or a use $u$ which is part of a loop and all uses of $i$ reachable from
+        it are in the same loop.
+
+2.  Insertion points for `__divine_drop_register` call are determined
+    *   for uses which are not in a loop the insertion point is inserted
+        immediately after them;
+    *  for uses which are in a loop the insertion point is at the beginning of
+       any basic block which follows the loop.
+
+    Strongly connected components of control flow graph of the function are used
+    to determine if instruction is in a loop and successors of a loop.
+
+3.  If instruction $i$ dominates an insertion point, `__divine_drop_register` is
+    inserted at this point.
+
+Furthermore, if the instruction in question is an `alloca`, it is treated
+specially as `alloca` cannot be zeroed until the local variable it represents is
+released. A simple heuristics is used to determine if the local variable might
+be aliased, and if not it is dropped immediately before the register which
+corresponds to its `alloca` is zeroed.
 
 ## Terminating Loop Optimization
 
