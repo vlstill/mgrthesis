@@ -649,13 +649,13 @@ verification with these relaxed memory models, instead they assume *sequential
 consistency*, that is immediate visibility of any write to memory.
 
 In \cite{SRB15} it was proposed to add weak memory model simulation using
-\llvm-to-\llvm transformation. In this section we will extended version of this
-transformation which allows verification of full range of properties supported
-by \divine (the original version was not usable for verification of memory
-safety). Furthermore this extended version supports wider range of memory models
-and the memory model to be used can be specified by user of the transformation.
-We also show how to decrease state space size of compared to the original
-version and evaluate the final transformation on several models.
+\llvm-to-\llvm transformation. In this section we will present extended version
+of this transformation which allows verification of full range of properties
+supported by \divine (the original version was not usable for verification of
+memory safety) and wider range of memory models and the memory model to be used
+can be specified by user of the transformation.  We also show how to decrease
+state space size of compared to the original version. The evaluation of proposed
+transformation can be found in \autoref{sec:res:wm}.
 
 ## Theoretical Memory Models
 
@@ -664,26 +664,27 @@ particular models of CPUs, it would not be practical and feasible to verify
 programs with regard to a particular implementation of real-world memory model.
 For this reason several theoretical memory models were proposed, namely *Total
 Store Order* (TSO) \cite{SPARC94}, *Partial Store Order* (PSO) \cite{SPARC94}.
-These memory models are usually described as constraints to allowed reordering
-of instructions which manipulate with memory.  In those theoretical models, an
-update may be deferred for an infinite amount of time. Therefore, even a finite
-state program that is instrumented with a possibly infinite delay of an update
-may exhibit an infinite state space. It has been proven that for such an
-instrumented program, the problem of reachability of a particular system
-configuration is decidable, but the problem of repeated reachability of a given
-system configuration is not \cite{Atig:2010:VPW:1706299.1706303}.
+Also, \llvm defines a memory model for atomic instructions which is described in
+\autoref{sec:llvm:atomic}.  These memory models are usually described as
+constraints to allowed reordering of instructions which manipulate with memory.
+In those theoretical models, an update may be deferred for an infinite amount of
+time.  Therefore, even a finite state program that is instrumented with a
+possibly infinite delay of an update may exhibit an infinite state space. It has
+been proven that for such an instrumented program, the problem of reachability
+of a particular system configuration is decidable, but the problem of repeated
+reachability of a given system configuration is not
+\cite{Atig:2010:VPW:1706299.1706303}.
 
 In Total Store Order memory model (which was used as basis for \cite{SRB15}),
 any write can be delayed infinitely but the order in which writes done by one
-thread become visible in other threads must match the order of writes in the
-thread which executed them. This memory model can be simulated by store buffer
---- any write is first done into a thread-private buffer so it is invisible for
-other threads, this buffer keeps writes in FIFO order. The buffer can later be
-nondeterministically flushed, that is oldest entry from the buffer can be
-written to memory. Furthermore, any reads have to first look into store buffer
-of their thread for newer value of memory location, only if there is none they
-can look into memory. See \autoref{fig:trans:wm:sb} for an example of store
-buffer working.
+thread become visible in other threads must match their execution order. This
+memory model can be simulated by store buffer. Any write is first done into a
+thread-private buffer so it is invisible for other threads, this buffer keeps
+writes in FIFO order. The buffer can later be nondeterministically flushed, that
+is, oldest entry from the buffer can be written to memory. Furthermore, any
+reads have to first look into store buffer of their thread for newer value of
+memory location, only if there is none they can look into memory. See
+\autoref{fig:trans:wm:sb} for an example of store buffer working.
 
 \begFigure[tp]
 
@@ -709,6 +710,18 @@ void thread1() {
 ```
 
 \endSplit
+
+\bigskip
+In this example, each of the threads first writes into a global variable and
+later reads the variable written by the other thread. Under sequential
+consistency, the possible outcomes would be $x = 1, y = 1$; $x = 1, y = 0$; and
+$x = 0, y = 1$, since at least one write must proceed before the first read
+proceeds. However, under TSO $x = 0, y = 0$ is also possible: this corresponds
+to the reordering of the load on line 3 before the independent store on line
+2. It can be simulated using store buffer, in this case the store on line 2 is
+not immediately visible, it is done into store buffer.  The following diagram
+shows (shortened) execution of the listed code. Dashed lines represent where
+given value is read from/stored to.
 
 \begin{center}
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
@@ -760,43 +773,38 @@ void thread1() {
 \end{tikzpicture}
 \end{center}
 
-\caption{In this example, each of the threads first writes into a global variable
-  and later reads the variable written by the other thread. Under sequential
-  consistency, the possible outcomes would be $x = 1, y = 1$; $x = 1, y = 0$; and $x
-  = 0, y = 1$, since at least one write must proceed before the first read
-  proceeds. However, under TSO $x = 0, y = 0$ is also possible: this corresponds
-  to the reordering of the load on line 3 before the independent store on line
-  2, and can be simulated by performing the store on line 2 into a store
-  buffer. The diagram shows (shortened) execution of the listed code. Dashed
-  lines represent where given value is read from/stored to.}
+\caption{An illustration of a behaviour which is not possible with sequential
+consistency, but is possible with total store order.}
 \label{fig:trans:wm:sb}
 \endFigure
 
 The transformation presented in \cite{SRB15} implements under-approximation of
 TSO using bounded store buffer. In this case the buffer size is limited and if
 an entry is to be written into full store buffer, the oldest entry from the
-buffer is flushed into memory. With this limited store buffer the
-transformation can be reasonably implemented, and the resulting state space is
-finite if the state space of the original program was finite, therefore this
-transformation is suitable for explicit state model checking.
-
-The main limitation of the version proposed in \cite{SRB15} is that it does not
-fully support \llvm atomic instructions with other that sequential consistency
-ordering and it supports only TSO ordering. On the other hand the extended
-version proposed in this work does support all atomic ordering supported by
-\llvm and it does not implement TSO, instead it simulates memory model of \llvm
-and allows specification of which guarantees should be added to this memory
-model. In this way the transformation can be parametrized to approximate larger
-range of memory models. Please refer to \autoref{sec:llvm:atomic} for details
-about \llvm memory model and ordering of atomic instructions.
+buffer is flushed into memory. With this limited store buffer the transformation
+can be reasonably implemented, and the resulting state space is finite if the
+state space of the original program was finite, therefore this transformation is
+suitable for explicit state model checking.
 
 ## Representation of \llvm Memory Model Using Store Buffers
 
 \label{sec:trans:wm:rep}
 
-The proposed \llvm memory model approximation uses store buffers to delay
-`store` and `fence` instructions. There is bounded store buffer associated with
-each thread of the program, this buffer is filled by `store` and `fence`
+The main limitation of the transformation proposed in \cite{SRB15} is that it
+does not fully support \llvm atomic instructions with other that sequential
+consistency ordering and it supports only TSO ordering. On the other hand the
+extended version proposed in this work does support all atomic ordering
+supported by \llvm and it does not implement TSO, instead it simulates memory
+model of \llvm and allows specification of which guarantees should be added to
+this memory model.
+
+The basic idea behind the proposed \llvm memory model simulation is that store
+buffer can be flushed nondeterministically in any order but not all orders
+result in valid runs of the program. The validity of the run is checked when
+load, read fence, or atomic instruction is performed and the invalid runs are
+discarded (using `__divine_assume`). The approximation uses store buffers to
+delay `store` and `fence` instructions. There is bounded store buffer associated
+with each thread of the program, this buffer is filled by `store` and `fence`
 instructions and flushed nondeterministically. The store buffer contains *store
 entries*, each of them is created by a single `store` instruction, it contains
 following fields:
@@ -808,6 +816,7 @@ following fields:
 *   a bit which indicates if value **was already flushed** (*flushed flag*),
 *   a bit set of **threads which observed the store** (*observed set*).
 
+\noindent
 Apart from store entries, store buffer can contain *fence entries* which
 correspond to `fence` instruction with at least release ordering (write fence).
 Fence entries have following fields:
@@ -815,6 +824,7 @@ Fence entries have following fields:
 *   **atomic ordering** of the fence,
 *   a bit set of **threads which observed the fence**.
 
+\noindent
 Store buffer entries are saved in the order of execution of their corresponding
 instructions.
 
@@ -829,15 +839,11 @@ execute.
 The aim of the proposed transformation is to approximate \llvm memory model as
 closely as possible (except for the limitations given by bounded buffer). For
 this reason we support all atomic orderings apart from not atomic, which is
-modelled as unordered.[^unord] Store buffer flushing is performed
-nondeterministically, at any point an entry can be flushed from store buffer
-into memory if it meets following constraints:
-
-*   no entry can be flushed into memory if there is an entry for the same memory
-    location earlier in the same store buffer (this prevents reordering of
-    dependent stores),
-*   an entry with release or stronger atomic ordering can be flushed only if it
-    is first (oldest) in the store buffer.
+modelled as unordered.[^unord] The store buffer is organized in
+first-in-first-out manner, but it is flushed nondeterministically in any order
+which satisfies the condition that no entry can be flushed into memory if there
+is an entry for the same memory location earlier in the same store buffer (this
+prevents reordering of dependent stores).
 
 [^unord]: The difference between not atomic and unordered
 is that both compiler and hardware is allowed to split not atomic operations and
@@ -848,8 +854,8 @@ for object of size less or equal to 64 bits.
 
 Furthermore, the entry can be either set as flushed using flushed flag, or
 deleted from the store buffer when it is flushed. The flushed flag is used only
-for monotonic entries which follow any release (or stronger) entries, all other
-entries are deleted immediately.
+for monotonic (or stronger) entries which follow any release (or stronger)
+entries, all other entries are deleted immediately.
 
 The description of the realization of atomic orderings follows. We will denote
 *local store buffer* to be the store buffer of the thread which performs the
@@ -867,14 +873,17 @@ Unordered loads
     buffer if it contains is newer value then the memory for given location.
 
 Monotonic load
-~   can be performed only if there is no monotonic (or stronger) store entry
-    in any foregin store buffer. In this way the monotonicity of single memory
-    location is guaranteed.
+~   can be executed at any time too. Furthermore, if there is a store entry for
+    given memory location in any foreign store buffer, and this store entry is
+    at least monotonic, all (at least) release stores and fences which precede
+    this entry in its store buffer and this entry (provided it is at least
+    release) are marked as observed by the current thread.
 
-    Furthermore, if there is a store entry for given memory location in any
-    foreign store buffer, and this store entry is at least monotonic, all (at
-    least) release stores and fences which precede this entry in its store
-    buffer are marked as observed by current thread.
+Monotonic atomic compound instruction
+~   (`cmpxchg` or `atomicrmw`) can be performed if monotonic load can be
+    performed and there is no not-flushed monotic entry for the same memory
+    location in any foreign store buffer. They also set observed flags in the
+    same way as monotinc loads.
 
 Acquire fence
 ~   can be performed if there are no entries in foreign store buffers with at
@@ -886,13 +895,24 @@ Acquire fence
 
 Acquire load
 ~   can be performed if a monotonic load of the same location can be performed,
-    an acquire fence can be performed, and there are no release (or stronger)
-    store entries for the same memory location in any foreign store buffer. This
-    way acquire load synchronizes with the latest release store to the same
-    memory location.
+    an acquire fence can be performed, and there are no flushed release (or
+    stronger) store entries for the same memory location in any foreign store
+    buffer. This way acquire load synchronizes with the latest release store to
+    the same memory location if the value of the store can be already read.
+
+Acquire atomic compound operations
+~   can be performed if acquire load on the same location can be performed and
+    there are no (at least) release entries for the same memory location in any
+    foreign store buffer.
 
 Release and acquire-release loads
 ~   are not allowed by \llvm.
+
+Release fences
+~   add fence entry into store buffer.
+
+Acquire-release fence
+~   behaves as both release and acquire fence.
 
 Sequentially consistent fence
 ~   can be performed if acquire fence can be performed and there are no
@@ -900,20 +920,54 @@ Sequentially consistent fence
     sequentially consistent fence synchronizes with any sequentially consistent
     operation performed earlier.
 
-Sequentially consistent load
-~   can be performed if acquire load of the same memory location can be
-    performed and sequentially consistent fence can be performed.
+Sequentially consistent loads and atomic compound operations
+~   can be performed if the same operations with acquire acquire ordering and on
+    the same memory location can be performed and sequentially consistent fence
+    can be performed.
 
-\note While there is no explicit synchronization between multiple sequentially
+While there is no explicit synchronization between multiple sequentially
 consistent stores/loads/fences there is still total order of all sequentially
 consistent operations which respects program order of each of the threads and
 synchronizes-with edges. For operations within a single thread their relative
 position in the total order is given by the order in which they are executed.
 For two stores from different thread which are not ordered as a result of
 explicit synchronization their relative order can be arbitrary as they are not
-dependent. Similar argumentation can be applied to load and fence instructions
-and for total ordering of all monotonic accesses to a single memory location.
+dependent and load an atomic compound operations are explicitly synchronized as
+described above.
 
+The case of monotonic operations is similar, not-otherwise-synchronized stores
+and loads from different threads can be flushed in arbitrary order. The total
+order of monotonic operations over a memory location can be derived from the
+order of execution:
+
+*   the total order of `store` instructions is given by the order in which the
+    corresponding store entries are flushed (which is a total order as the
+    verifier executes instructions interleaved and not in parallel);
+*   the total order of `load` instructions is given by the order they are
+    executed in;
+*   every `store` is ordered before the `load` which loads value written by this
+    or any later stores;
+*   this total order is consistent with order of execution of threads, for
+    `load` instructions this is obvious, for `store` it follows from the fact
+    that stores to the same location from the same thread cannot be reordered.
+
+\noindent
+In the case of `atomicrmw` and `cmpxchg` instructions the stronger
+synchronization is needed as representing them as atomically-executed `load`
+followed by `store` could break the total order: suppose thread $0$ performs
+atomic increment of memory location `@x` and later thread $1$ increments the
+same location, now, if the store buffer entry corresponding to the `store` in
+thread $0$ is not flushed before the load in thread $1$ the old value will be
+read in thread $1$ and the result will be same as if only one increment
+executed. The corresponding ordering is load in thread $0$, load in thread $1$,
+store in thread $0$, store in thread $1$, and this ordering is possible even
+though both `load`-`store` combinations are executed atomically, due to the fact
+that the position of `store` in the total order is determined by the moment in
+which this store is flushed. To resolve this, these atomic operations can be
+only performed if there is no store entry for given memory location in any
+foreign store buffer, this way total ordering of these operations is guaranteed.
+
+\bigskip
 Figures \ref{fig:trans:wm:simple1}, \ref{fig:trans:wm:simple2}, and
 \ref{fig:trans:wm:simple3} demonstrate store buffer approximation of \llvm
 memory model for the case of simple shared variables, one of which is accessed
@@ -1510,7 +1564,8 @@ instructions which perform the same action (but not atomically) and this
 sequence is executed under \divine mask. This sequence of instructions contains
 loads and stores with atomic ordering derived from the atomic ordering of the
 original atomic instruction and these instructions are later transformed to weak
-memory models.
+memory models. In also contains explicit additional synchronization required to
+ensure total ordering of atomic instructions over the same address.
 
 ```{.llvm}
 %res = atomicrmw op ty* %pointer, ty %value ordering
@@ -1823,6 +1878,16 @@ buffer as it is possible that some entry corresponds to a part of requested
 value only. While these functions are primarily intended to be used by the \lart
 transformation, their careful manual usage can be used to manually simulate weak
 memory model for a subset of operations only.
+
+```{.c}
+void __lart_weakmem_sync( char *addr, uint32_t bitwidth,
+                            __lart_weakmem_order ord );
+```
+
+This function is used for explicit synchronization of atomic instructions
+(`atomicrmw`, `cmpxchg`). The memory order must be at least monotonic, this
+functions ensures that there is no at least monotonic entry for matching address
+in any foreign store buffer.
 
 ```{.c}
 void __lart_weakmem_cleanup( int cnt, ... );

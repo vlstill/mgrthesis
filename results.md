@@ -9,6 +9,8 @@
 
 # Weak Memory Models
 
+\label{sec:res:wm}
+
 ## State Space Reductions
 
 \label{sec:res:wm:tau}
