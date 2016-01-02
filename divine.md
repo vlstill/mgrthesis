@@ -63,6 +63,46 @@ completely replaced without the need to modify and recompile \divine itself, and
 is closely tied to the language of the verified program, while the interpreter is
 mostly language agnostic.
 
+\begin{figure}[t]
+    \center\small
+
+    \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
+                       , semithick
+                       , scale=0.7
+                       , state/.style={ rectangle, draw=black, very thick,
+                         minimum height=2em, minimum width = 4em, inner
+                         sep=2pt, text centered, node distance = 2em }
+                       ]
+      \node[state, minimum width = 5em] (lib) {Libraries};
+
+      \node[state, below = of lib.south west, anchor = north west] (cpp) {C++};
+      \node[state, right = of cpp, rounded corners] (clang) {Clang};
+      \node[state, right = of clang] (llvm) {\llvm IR};
+      \node[state, right = of llvm, rounded corners] (lart) {\lart};
+      \node[state, right = of lart] (llvm2) {\llvm IR};
+      \node[state, right = of llvm2, rounded corners] (divine) {\divine};
+
+      \node[state, above = of divine.north east, anchor = south east, minimum width = 11em] (ltl) {\ltl or safety property};
+      \node[state, below = of divine] (valid) {Valid};
+      \node[state, left = of valid, minimum width = 8em] (ce) {Counterexample};
+
+      \path (ltl) edge (divine)
+            (cpp) edge (clang)
+            (clang) edge (llvm)
+            (lib) edge [out=0, in=90, looseness = 1] (clang)
+            (llvm) edge (lart)
+            (lart) edge (llvm2)
+            (llvm2) edge (divine)
+            (divine) edge (valid) edge (ce)
+            (ce) edge[dashed, in=270, out=180, looseness=0.4] (cpp)
+            ;
+    \end{tikzpicture}
+
+  \caption{Work-flow of verification of C++ program with \divine. \lart is
+  optional. Boxes with rounded corners represent executables.}
+  \label{fig:divine:llvm:workflow}
+\end{figure}
+
 ## Interpreter
 
 \label{sec:divine:interpreter}
