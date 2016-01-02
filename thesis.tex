@@ -16,6 +16,8 @@
            , style=numeric
            , sortlocale=en_US
            , bibencoding=UTF8
+           , maxcitenames=3
+           , maxbibnames=100
            ]{biblatex}
 
 \usepackage{xcolor}
@@ -49,6 +51,8 @@
 
 \usepackage{multirow}
 \usepackage{microtype}
+\usepackage{tabularx}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
 
 \newcommand{\divine}{\mbox{\textsf{DIVINE}}\xspace}
 \newcommand{\lart}{\mbox{\textsf{LART}}\xspace}
