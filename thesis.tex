@@ -155,27 +155,40 @@ full reference to its source.
 \cleardoublepage
 
 \section*{Abstract}
-% The main focus of this thesis is on a reduction of memory requirements of 
-% an explicit-state \ltl{} \mcer{} by use of \tc{}. Presented technique is
-% successfully applied to model checking of real world threaded C and C++
-% programs as well as some modeling formalisms dedicated for \mc{}.
+
+This work focuses on application of \llvm transformations as a preprocessing
+step for verification of real-world C and C++ programs using explicit-state
+model checker \divine \cite{DiVinE30}. We demonstrate that \llvm transformations
+can be used for extension of verifier capabilities and for reduction of the
+state space size.
+
+In the case of extension of verifier capabitilies, the main focus is on
+verification with relaxed memory models, this is a continuation of the work
+started in \cite{SRB15}. We extend the previous transformation to enable
+verification of wider range of safety properties, support code with atomic
+instructions, support more relaxed memory models than total store order, and
+improve state space size of the programs which use this transformation. The
+final implementation of this transformation is evaluated and compared with the
+previous implementation.
+
+As for state space reductions, we propose the concept of optimizations which
+preserve verified property, evaluate some of these optimizations, and propose
+additional transformations which can be implemented as future work.
 
 \section*{Keywords}
-\Mc, \llvm, Formal Verification, \divine, \lart, \llvm-to-\llvm Transformation,
-Weak Memory Models, Total Store Order, Partial Store Order, Implementation.
+Formal Verification, C, C++, \llvm, Model Checking, Parallel,
+\divine, \lart, \llvm Transformation, Weak Memory Models, Total Store Order,
+Implementation.
 
 \cleardoublepage
 
 \section*{Acknowledgements}
-% First I would like to thank the Parallel and Distributed Systems Laboratory.
-% It is great place to learn new things and to work on interesting problems,
-% with nice people ready to help to a newcomer like me. Namely, I would like to
-% thank \Jirik{} for inviting me to laboratory and advising this thesis,
-% \Mornfall{} for giving me insights into C++ and \divine{} and
-% \Jana{} for supporting and motivating my journey for knowledge.
-% 
-% I would also like to thank my family and my friends for supporting me and having
-% patience with me.
+I would like to thank all the people in \paradise laboratory for the support and
+for the nice work environment. Namely, I would like to thank Jiří Barnat for
+advising this thesis and Petr Ročkai for consulting with me.
+
+I would also like to thank my friends and my family for supporting me and having
+patience with me.
 
 \cleardoublepage
 % \clearpage
