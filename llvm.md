@@ -8,19 +8,18 @@ representation used throughout all phases of the \llvm compilation strategy.''
 \end{quote}
 
 \llvm\cite{llvm:web} was originally introduced in \cite{Lattner02} as an
-infrastructure for optimization. Today \llvm is presented as compiler
+infrastructure for optimization. Today, \llvm is presented as compiler
 infrastructure, it provides programming language and platform independent tools
 for optimization and support for code generation for many platforms. It also
 defines intermediate representation --- \llvm IR --- a
-single-static-assignment-based low-level language, and a library for
-manipulation this intermediate representation. The name \llvm itself is often
-used both for the complete infrastructure as well as for \llvm IR.
+static-single-assignment-based low-level language, and a library which can be
+used to manipulate with this intermediate representation. The name \llvm itself
+is often used both for the complete infrastructure as well as for \llvm IR.
 
 \llvm IR can be represented in three ways: a human readable assembly (`.ll`
 file), a compact serialized bitcode (`.bc` file), or as in-memory C++ objects
 which can be manipulated by \llvm libraries and read from and serialized to both
 other forms.
-
 
 # \llvm IR basics
 
@@ -35,7 +34,7 @@ C++. We will also use the same font for instruction and function names.
 variables and functions (their name begins with `@`), and local identifiers,
 such as register names, types and labels (their name begins with `%`). The
 identifiers can be either named or unnamed, unnamed identifiers are represented
-using unsigned value.
+using unsigned numerical value.
 
 ### Modules and Functions
 
@@ -43,9 +42,9 @@ using unsigned value.
 the input program or a result of the \llvm linker. Modules contain functions, global
 variables, symbol table entries, and metadata.
 
-A function contains, apart from its header (which defines name, number and type
-of parameters and function attributes), a body which consists of *basic blocks*.
-Basic block is a continuous sequence of instruction with no branching inside,
+A function contains a header (which defines name, number and type of parameters
+and function attributes) and a body which consists of *basic blocks*.  Basic
+block is a continuous sequence of instruction with no branching inside,
 terminated by so called *terminator* instruction which is an instruction which
 transfers control flow to another basic block (branching instruction) or exits
 the function (in the case of `ret` and `resume`). Basic blocks are named with
@@ -55,23 +54,22 @@ once, at their declaration) and there is unlimited number of them.
 
 Most \llvm instructions operate on registers, memory manipulation is possible
 only using four instructions: `load`, `store`, `atomicrmw`, and `cmpxchg`. The
-meaning of `load` and `store` instructions is simple enough, the first one
-loads value of given type from memory location given by its pointer argument,
-the second one stores value to memory location given by its pointer argument.
-`atomicrmw` and `cmpxchg` are atomic instructions, they perform atomic
-read-modify-write and compare-and-swap, more about these instructions can be
-found in \autoref{sec:llvm:atomic}.
+`load` instruction loads value of given type from memory location given by its
+pointer argument, the `store` instruction stores value to memory location given
+by its pointer argument. `atomicrmw` and `cmpxchg` are atomic instructions,
+they perform atomic read-modify-write and compare-and-swap. More information
+about these instructions can be found in \autoref{sec:llvm:atomic}.
 
-Since \llvm registers are in SSA form and their address cannot be taken they are
-not suitable for representation of local variables. To represent these variables
-\llvm uses `alloca` instruction. `alloca` instruction takes a size and returns
-a pointer to a memory location of given size which will be automatically freed on
-function exit. Usually `alloca` is implemented using stack when \llvm is
-compiled to runnable binary.
+Since \llvm registers are in SSA form and their address cannot be taken, they
+are not suitable for representation of local variables. To represent these
+variables \llvm uses `alloca` instruction. `alloca` instruction takes a size and
+type and returns a pointer to a memory location of given size which will be
+automatically freed on function exit. Usually `alloca` is implemented using
+stack when \llvm is compiled to runnable binary.
 
 Finally, again as a consequence of SSA form, \llvm IR includes $\varphi$-nodes
 represented by `phi` instruction, a special instruction which merges values from
-different basic blocks. `phi` instructions must be at the beginning of basic
+different basic blocks. `phi` instructions must be at the beginning of a basic
 block.
 
 ### Types
@@ -80,18 +78,24 @@ block.
 different bit widths (for example `i32` is a 32 bit integer, `i1` is a boolean
 value), floating point types (`float`, `double`), and pointer types (denoted in
 the same way as in C, for example `i32*` is pointer to a 32 bit integer). Apart
-from primitive types \llvm has arrays (for example `[4 x i32]` is an array of 4
+from primitive types, \llvm has arrays (for example `[4 x i32]` is an array of 4
 integers), and structures (for example `{ i32, i8* }` is a tuple of an integer
 and a pointer). \llvm types can be also named and there are some other types
 such as vector types which won't be necessary through this work.
 
+There are no implicit casts in \llvm, instead, a variety of of casting
+instructions is provided, namely `bitcast` for casting which preserves
+representation, `inttoptr` and `ptrtoint` to cast integers to and from pointers
+with same size, and `trunc`, `zext`, and `sext` for integer casts to smaller,
+respectively larger data types.
+
 ### Metadata
 
-Furthermore, \llvm modules can contain *metadata*. Metadata are non-essential
-data which include additional information for example for the compiler,
-optimizer or code generator. They can be bound to \llvm values and they are
-metadata names are prefixed with `!`. An important example of metadata are
-debugging informations.
+\llvm modules can also contain *metadata*. Metadata are non-essential data which
+include additional information for example for the compiler, optimizer or code
+generator. An important example of metadata are debugging informations.
+Metadata can be bound to \llvm instructions, and functions their names are
+prefixed with `!`.
 
 # \llvm Compilation Process
 
@@ -104,7 +108,7 @@ allows processing of Ada, Fortran, and other.
 After the frontend generates \llvm IR, \llvm can be used to run optimizations
 on this IR. These optimizations are organized into *passes*, each of the passes
 performs a single optimization or code analysis task, such as constant
-propagation, or inlining. \llvm passes are usually run directly by the
+propagation or inlining. \llvm passes are usually run directly by the
 compiler, but they can be also executed on serialized \llvm IR using `opt`
 binary which comes with \llvm. Optimization passes are written in C++ using
 \llvm libraries.
@@ -172,7 +176,7 @@ has three exception-handling-related instructions: `invoke`, `landingpad`, and
     function in such a way that if the functions throws an exception this
     exception will be handled by dedicated basic block. Unlike `call`, `invoke`
     is a terminator instruction, it has to be last in the basic block. Apart
-    from the function to call and its parameters `invoke` also takes two basic
+    from the function to call and its parameters, `invoke` also takes two basic
     block labels, one to be used when the function return normally and one to be
     used on exception propagation, the second one must be a label of a landing
     block.
@@ -194,28 +198,32 @@ way. In C++ throwing is done by a call to `__cxa_throw` which will initiate the
 stack unwinding in cooperation with the unwinder library. Similarly, allocation
 and catching of exceptions are left to be provided by the frontend.
 
-# Atomic Instructions
+# Memory Model and Atomic Instructions
 
 \label{sec:llvm:atomic}
 
 \llvm has support for atomic instructions with well-defined behavior in
 multi-threaded programs \cite{llvm:atomics}. \llvm's atomic instructions are
-build so that they can provide the functionality required by C++11 atomic operation
-library, as well as Java volatile. Apart from atomic versions of `load` and
-`store` instructions \llvm supports three atomic instructions: `atomicrmw`
-(atomic read-modify-write) and `cmpxchg` (atomic compare-and-exchange, also
-compare-and-swap) which are essentially atomic load immediately followed by an
-operation and atomic store in such a way that no other memory action can happen
-between the load and store. \llvm also contains a `fence` instruction which
-allows synchronization which is not part of any other operation.
+build so that they can provide the functionality required by C++11 atomic
+operation library, as well as Java volatile. Apart from atomic versions of
+`load` and `store` instructions \llvm supports two atomic instructions:
+`atomicrmw` (atomic read-modify-write) and `cmpxchg` (atomic
+compare-and-exchange, also compare-and-swap) which are essentially atomic load
+immediately followed by an operation and atomic store in such a way that no
+other memory action can happen between the load and the store. \llvm also
+contains a `fence` instruction (memory barrier) which allows synchronization
+which is not part of any other operation.
+
+## Atomic Ordering
 
 The semantics of these atomic instructions is affected by their *atomic
 ordering* which gives the strength of atomicity they guarantee. Apart from *not
 atomic* which is used to denote `load` and `store` instructions with no
-atomicity guarantee, there are six atomic ordering: *unordered*, *monotonic*,
+atomicity guarantee, there are six atomic orderings: *unordered*, *monotonic*,
 *acquire*, *release*, *acquire-release*, and *sequentially consistent* (given in
-order of increasing strength). These atomic ordering are described by memory
-model of \llvm{}.[^memmodel]
+order of increasing strength). These atomic orderings are described by memory
+model of \llvm{} (which is described in detail in chapter *Memory Model for
+Concurrent Operation* of \cite{llvm:langref}).
 
 In order to describe aforementioned atomic orderings, we first need to define
 *happens-before* partial order of operations of a concurrent program.
@@ -224,8 +232,6 @@ execution order, and when *a* *synchronizes-with* *b* it includes edge from *a*
 to *b*. Synchronizes-with edges are introduced by platform-specific ways,[^sync]
 and by atomic instructions.
 
-[^memmodel]: Chapter *Memory Model for Concurrent Operation* of
-\cite{llvm:langref}.
 
 [^sync]: For example by thread creation or joining, mutex locking and unlocking.
 
@@ -252,7 +258,7 @@ Acquire
     guarantees of monotonic ordering, a read operation flagged as acquire
     creates synchronizes-with edge with a write operation which created the
     value if this write operation was flagged as release. Acquire is memory
-    ordering strong enough to implement lock acquire.
+    ordering strong enough to implement lock acquisition.
 
 Release
 
@@ -275,10 +281,10 @@ Sequentially Consistent
     consistent with happens-before partial order and with modification order of
     all the affected memory locations.
 
-[^cpprace]: This is in contrast with C++11 and C11 standard who specify that
-concurrent, unsynchronized access of same non-atomic memory location results in
-undefined behavior, for example `load` can return value which was never written
-to given memory location.
+[^cpprace]: This is in contrast with C++11 and C11 standards that specify that a
+concurrent, unsynchronized access to the same non-atomic memory location results
+in undefined behavior, for example `load` can return value which was never
+written to given memory location.
 
 An example of synchronizes-with edges and happens-before partial order can be
 seen in \autoref{fig:llvm:at:happensbefore}.
@@ -339,7 +345,7 @@ illustration how this can be used to implement spin-lock can be found in
 
 If the fence has sequentially consistent ordering it also participates in
 global program order of all sequentially consistent operations. A fence is not
-allowed to have monotonic, unordered, or no atomic ordering.
+allowed to have monotonic, unordered, or not atomic ordering.
 
 \begFigure[tp]
 
