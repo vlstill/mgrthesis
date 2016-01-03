@@ -8,10 +8,10 @@ time of writing of this thesis.
 
 For the purposes of this thesis, most of the internal architecture of \divine is
 irrelevant and we will focus mostly on \llvm interpreter, which is the only part
-directly involved in this work and its interaction with the verified program is
-important for the understanding of proposed \llvm-to-\llvm transformations as well
-as possibility to use them outside of \divine. We will also describe employed
-state space reduction techniques already implemented in \divine.
+directly involved in this work, and its interaction with the verified program is
+important for the understanding of proposed \llvm transformations as well as
+possibility to use them outside of \divine. We will also describe state space
+reduction techniques implemented in \divine.
 
 # Overall Architecture
 
@@ -19,49 +19,53 @@ state space reduction techniques already implemented in \divine.
 state space generators, exploration algorithms, and closed set storages.
 Currently, there are multiple implementations of each of these modules,
 providing different functionality. For state space generators, there are
-versions for different input formalisms such as \llvm, DVE \cite{TODO}, and
-\textsc{UppAll} timed automata \cite{TODO}. Each of these generators define
-input formalism and can be used to generate a state space graph from its input,
-that is, for a given state in the state space it yields its successor and is able to
-report state flags. State flags are used by the exploration algorithm to detect if a goal
-state was reached (in the case of safety properties) or the state is accepting
-(in the case of \ltl verification using \buchi automata.
+versions for different input formalisms such as \llvm, DVE \cite{Simecek2006},
+and \textsc{UppAll} timed automata \cite{UppAll}. Each of these generators
+define input formalism and can be used to generate a state space graph from its
+input, that is, for a given state in the state space it yields its successor and
+is able to report state flags. State flags are used by the exploration algorithm
+to detect if a goal state was reached (in the case of safety properties) or the
+state is accepting (in the case of \ltl verification using \buchi automata.
 
 The closed set storage defines a way in which closed set is stored so that for
 given state it can be quickly checked if it was already seen and it is possible
 to retrieve algorithm data associated with this state. In \divine two versions
-of the closed set storages are present: a hash table and a hash table with
-lossless tree compression \cite{RSB15}.
+of closed set storages are present: a hash table and a hash table with lossless
+tree compression \cite{RSB15}.
 
 Finally, the exploration algorithm connects all these parts together in order to
 verify given property. Which algorithm is used depends on the verified property, for
 safety properties, either standard \bfs based reachability, or
 context-switch-directed reachability \cite{SRB14} can be used. For general \ltl
-properties OWCTY algorithm \cite{TODO} is used. All of these algorithms support
+properties OWCTY algorithm \cite{OWCTY} is used. All of these algorithms support
 parallel and distributed verification.
 
 # \llvm{} in \divine
 
-\llvm support is implemented by the means of an \llvm state space generator, also
-referred to as an \llvm interpreter, and bitcode libraries. The interpreter is
+\llvm support is implemented by the means of an \llvm state space generator,
+also referred to as an \llvm interpreter, and libraries. The interpreter is
 responsible for instruction execution, memory allocation and thread handling, as
-well as parts of exception handling. The role of interpreter is similar to the role of
-operating system and hardware for natively compiled programs. On the other
-hand, the bitcode libraries provide higher level functionality for user's
-programs as they implement language support by the means of standard libraries
-for C and C++, higher-level threading by the means of `pthread` library, and to
-some extend a POSIX-compatible environment, with a simulation of basic filesystem
-functionality. The libraries use intrinsic functions provided by the generator
-to implement low-level functionality --- these functions are akin to system
-calls in operating systems.
+well as parts of exception handling. The role of interpreter is similar to the
+role of operating system and hardware for natively compiled programs. On the
+other hand, the libraries provide higher level functionality for user's programs
+as they implement language support by the means of standard libraries for C and
+C++, higher-level threading by the means of `pthread` library, and to some
+extend a POSIX-compatible environment, with a simulation of basic filesystem
+functionality. The libraries use intrinsic functions provided by the interpreter
+to implement low-level functionality, these functions are akin to system calls
+in operating systems.
 
 As a terminology, we will denote all the parts implemented in \llvm bitcode,
-that is the bitcode libraries together with the user-provided code as the
-*userspace*, to distinguish it from the interpreter, which is compiled into
-\divine. Unlike the interpreter, the userspace can be easily changed, or even
-completely replaced without the need to modify and recompile \divine itself, and
-is closely tied to the language of the verified program, while the interpreter is
-mostly language agnostic.
+that is the libraries together with the user-provided code as the *userspace*,
+to distinguish it from the interpreter, which is compiled into \divine. Unlike
+the interpreter, the userspace can be easily changed, or even completely
+replaced without the need to modify and recompile \divine itself, and is closely
+tied to the language of the verified program, while the interpreter is mostly
+language agnostic.
+
+In order to verify programs in C or C++ in \divine, they are first compiled into
+\llvm using Clang together with libraries, the overall workflow of verification
+of C/C++ code is illustrated in \autoref{fig:divine:llvm:workflow}.
 
 \begin{figure}[t]
     \center\small
@@ -98,7 +102,7 @@ mostly language agnostic.
             ;
     \end{tikzpicture}
 
-  \caption{Work-flow of verification of C++ program with \divine. \lart is
+  \caption{Workflow of verification of C++ programs with \divine. \lart is
   optional. Boxes with rounded corners represent executables.}
   \label{fig:divine:llvm:workflow}
 \end{figure}
@@ -108,8 +112,8 @@ mostly language agnostic.
 \label{sec:divine:interpreter}
 
 The \llvm interpreter is responsible for the execution of \llvm instructions and
-intrinsic functions (built-in operations which are represented in \llvm as
-call to certain function with `__divine` prefix and in the interpreter are
+intrinsic functions (built-in operations which are represented in \llvm as call
+to certain function with `__divine` or `llvm.` prefix and in the interpreter are
 executed similarly to instructions). It also performs state space reductions
 (described in \autoref{sec:divine:reduction}) and recognizes which states are
 violating the verified property.
@@ -122,8 +126,8 @@ violating the verified property.
 these properties are specified in term of problem categories. Each category is a
 group of related problems which should be reported as property violation.
 Problem categories can be reported either directly by \llvm interpreter, or by
-userspace using `__divine_problem` intrinsic. When a problem is reported it is
-indicated in the state, together with the position in the program at which it
+userspace using `__divine_problem` intrinsic. When a problem is reported, it is
+indicated in the state together with the position in the program at which it
 was detected. Problem names are defined in `divine/problem.h` header file which
 is available to the program when it is compiled using \divine.
 
@@ -156,9 +160,9 @@ Memory leak
     before the object is freed.
 
 Not implemented
-~   is intended to be reported by the userspace in function stubs --- a function
+~   is intended to be reported by the userspace in function stubs (a function
     which is provided only so that bitcode does not contain undefined functions,
-    but is not implemented, for example because it is not expected to be used.
+    but is not implemented, for example because it is not expected to be used).
 
 Uninitialized
 ~   is reported by the interpreter if the control flow depends on an
@@ -169,8 +173,7 @@ Deadlock
     when circular waiting in `pthread` mutexes is detected.
 
 Other
-~   --- this problem category is used by the userspace to report other types of
-    problems.
+~   is used by the userspace to report other types of problems.
 
 
 ### Intrinsic Functions
@@ -195,17 +198,17 @@ of new thread. The function returns thread ID used for identification of the new
 thread in \divine's interpreter. The `__divine_get_tid` returns \divine thread
 ID of the thread which executed it.
 
-\bigskip
-When implementing threading primitives, such as those in `pthread` library, in
-userspace it required that these are themselves data race free. To facilitate
-this, \divine provides a way to make an atomic section of instructions, and
-interpreter takes care that this block of instructions is indeed executed
-atomically --- there is only one edge in state space corresponding to
-the entire block of instructions, which might include any number of
-instructions or even function calls. It is, however, a responsibility of the
+\bigskip When implementing threading primitives (such as those in `pthread`
+library) in userspace, it is required that these are themselves data race free.
+To facilitate this, \divine provides a way to make an atomic section of
+instructions, and interpreter takes care that this block of instructions is
+indeed executed atomically, that there is only one edge in the state space which
+corresponds to the entire block of instructions, which might include any number
+of instructions or even function calls. It is, however, a responsibility of the
 library writer to use these atomic sections correctly, namely, each of these
 sections must always terminate, that is, there must be no (possibly) infinite
-cycles, such as busy-waiting for a variable to be set by other thread.
+cycles or recursion, such as busy-waiting for a variable to be set by other
+thread.
 
 ```{.cpp}
 void __divine_interrupt_mask();
@@ -214,35 +217,35 @@ void __divine_interrupt_unmask();
 
 \label{sec:divine:llvm:mask}
 
-The `__divine_interrupt_mask` function marks start of an atomic section, all
-actions performed until the atomic section ends will happen atomically. The
-atomic section can end in two ways: either by explicit call to
-`__divine_interrupt_unmask`, or implicitly when function which called
-`__divine_interrupt_mask` exits.
+The `__divine_interrupt_mask` function starts an atomic section, all actions
+performed until the atomic section ends will happen atomically. The atomic
+section can end in two ways, either by explicit call to unmask function, or
+implicitly when function which called mask function exits.
 
 The behavior of atomic sections can be more precisely explained by the means of
-*mask flag* associated with each call frame. When `__divine_interrupt_mask`
-is called the frame of its caller is marked with mask flag, which can be reset
-by a call to `__divine_interrupt_unmask`. The instruction is then part of the atomic
-section if it is executed inside a masked frame. If the executed function is
-a function call, the frame of the callee inherits the mask flag of the caller.
-However, when `__divine_interrupt_unmask` is called it resets mask flag of its
-caller, leaving mask flags of functions lower in stack unmodified so that the
-current atomic section ends, but if the caller of `__divine_interrupt_unmask`
-was not the caller of `__divine_interrupt_mask`, then a new atomic section will
-be entered after the caller of `__divine_interrupt_unmask` exits.
+*mask flag* associated with each frame of the call stack. When
+`__divine_interrupt_mask` is called, the frame of its caller is marked with mask
+flag, which can be reset by a call to `__divine_interrupt_unmask`. An
+instruction is part of an atomic section if it is executed inside a masked
+frame. If the executed function is a function call, the frame of the callee
+inherits the mask flag of the caller.  However, when `__divine_interrupt_unmask`
+is called it resets mask flag of its caller, leaving mask flags of functions
+lower in stack unmodified. This way that the current atomic section ends, but if
+the caller of `__divine_interrupt_unmask` was not the caller of
+`__divine_interrupt_mask`, then a new atomic section will be entered after the
+caller of `__divine_interrupt_unmask` exits.
 
 ```{.cpp}
 void __divine_assert( int value );
 void __divine_problem( int type, const char *data );
 ```
-These functions allow problem reporting from the userspace.
+
+These functions can be used to report problems from the userspace.
 `__divine_assert` behaves much like the standard C macro `assert`: if it is
 called with a nonzero value the assertion violated problem is added to the
-current state's problems (see \autoref{divine:divine:problems}).
-`__divine_problem` unconditionally reports a problem of given category to the
-interpreter, the report can be accompanied by error message passed in the
-`data` value.
+current state's problems.  `__divine_problem` unconditionally reports a problem
+of given category to the interpreter, the report can be accompanied by error
+message passed in the `data` value.
 
 ```{.cpp}
 void __divine_ap( int id );
@@ -257,12 +260,12 @@ int __divine_choice( int n, ... );
 ```
 
 `__divine_choice` is a nondeterministic choice, when it is encountered, the
-state of the program splits into `n` copies; each copy of the state
-will see a different return value from `__divine_choice` starting from $0$ up to
-$n - 1$. When more than one parameter is given, the choice becomes probabilistic
-and the remaining parameters (there must be exactly `n` additional parameters)
-give probability distribution of the choices. This can be used for probabilistic
-C++ verification, see \cite{TODO:MUSEPAT} for more details.
+state of the program splits into `n` copies; each copy of the state will see a
+different return value from `__divine_choice` starting from $0$ up to
+$\texttt{n} - 1$. When more than one parameter is given, the choice becomes
+probabilistic and the remaining parameters give probability distribution of the
+choices (there must be exactly `n` additional parameters). This can be used for
+probabilistic C++ verification, see \cite{BCRSZ16} for more details.
 
 ```{.cpp}
 void *__divine_malloc( unsigned long size );
@@ -271,7 +274,7 @@ int __divine_heap_object_size( void *ptr );
 int __divine_is_private( void *ptr );
 ```
 
-These are low-level heap access functions, `__divine_malloc` allocates a new block
+These are low-level heap access functions. `__divine_malloc` allocates a new block
 of memory of given size, it never fails.  `__divine_free` frees a block of
 memory previously allocated with `__divine_malloc`. If the block was already
 freed, a problem is reported. If a null pointer is passed to `__divine_free`,
@@ -293,10 +296,11 @@ for heap canonization (see \cite{RBB13} for details on heap canonization).
 ```{.cpp}
 void *__divine_va_start();
 ```
-This function allows handling of functions with variable number of arguments.
-Calling `__divine_va_start` gives a pointer to a block of memory that
-contains all the variadic arguments, successively assigned higher addresses
-going from left to right.
+
+This function is used to implement C macros for functions with variable number
+of arguments.  The call to `__divine_va_start` returns a pointer to a block of
+memory that contains all the variadic arguments, successively assigned higher
+addresses going from left to right.
 
 ```{.cpp}
 void __divine_unwind( int frameid, ... );
@@ -312,24 +316,24 @@ handling in \divine see the next section.
 
 In order to allow verification of unmodified programs in any programing
 language, it is desirable that all the language features can be handled by the
-verifier. When \llvm is used as an intermediate representation by the verifier most
-of the language features are supported automatically by the use of existing
-compiler. Nevertheless, there might still be some features that require support from
-the verifier. In C++ exceptions are such a feature and they are often omitted by
-verifiers for this reason.
+verifier. When \llvm is used as an intermediate representation by the verifier,
+most of the language features are supported automatically by the use of existing
+compiler. Nevertheless, there might still be some features that require support
+from the verifier. C++ exceptions are such a feature and they are often omitted
+by verifiers for this reason.
 
 In \divine C++ exceptions are supported and the mechanisms used should allow
 implementation of exceptions in other programming languages purely in userspace,
 provided that they use \llvm exception handling described in
 \autoref{sec:llvm:eh} and they use similar mechanisms as C++ to determine which
-`landingpad` matches the exception. The full description of the \divine's
+`landingpad` clause matches the exception. The full description of the \divine's
 exceptions can be found in \cite{RBB14}.
 
 From the point of a C++ program, \divine acts as an unwinder library as it
 allows transfer of control from currently executing function into landing block
-corresponding of an active `invoke` instruction in some stack frame deeper in
+corresponding to an active `invoke` instruction in some stack frame deeper in
 the stack. The interface for this functionality is quite simple and it consists
-f the following functions and data types.
+of the following functions and data types:
 
 ```{.cpp}
 void __divine_unwind( int frameid, ... );
@@ -349,45 +353,45 @@ struct _DivineLP_Info {
 struct _DivineLP_Info *__divine_landingpad( int frameid );
 ```
 
-`__divine_unwind` unwinds all frames between current frame and frame denoted by
-`frameid`. No landing pads are triggered in intermediate frames, if there is a
-landing pads for active call in the frame in which unwinding ends and any
+`__divine_unwind` unwinds all frames between current frame and the frame denoted
+by `frameid`. No landing pads are triggered in the intermediate frames, if there
+is a landing pads for active call in the frame in which unwinding ends and any
 arguments other than `frameid` were passed to `__divine_unwind`, this landing
 pad returns arguments passed to `__divine_unwind` (if the active call
 instruction in destination frame is `call` and not `invoke` the extra arguments
-are returned as result of the function). The `frameid` is $0$ for the
-caller of `__divine_unwind`, $-1$ for its caller and so on.
+are returned as result of the function). The `frameid` is $0$ for the caller of
+`__divine_unwind`, $-1$ for its caller and so on.
 
 `__divine_landingpad` gives information about `landingpad` associated with the
 active `invoke` in frame denoted by `frameid`, if there is some. It returns
 a pointer to a `_DivineLP_Info` object which corresponds to the landing pad, or
 a null pointer if the frame does not exist. If there is a `call` instead of
-`invoke` in the frame the returned `_DivineLP_Info` object will contain no
+`invoke` in the frame, the returned `_DivineLP_Info` object will contain no
 clauses. The returned structure encodes information about the `landingpad` it
-corresponds to and the personality function used by its enclosing function ---
-there is flag which indicates whether the landing block is cleanup block (it
+corresponds to and the personality function used by its enclosing function.
+There is flag which indicates whether the landing block is cleanup block (it
 should be entered even if the exception does not match any of the clauses), and
 an array of `_DivineLP_Clause` structures which encodes the clauses of the
 `landingpad`. For each of these clauses, there is an identifier which should be
 returned as a selector from the `landingpad` if this clause is matched and a
 pointer to language-specific `tag` (which is a type information object in C++).
 
-Using these functions a function which throws an exception can be implemented
-quite easily: it simply goes through the stack asking for `_DivineLP_Info` in
-each frame beginning with its caller, and for each of them check if the
-exception type matches any of the clauses in the `landingpad`. When a matching
-clause is found, the corresponding type id is set into the exception object
-which is then passed into `personality` function. The personality function
-returns a value which should be returned from `landingpad` instruction, so this
-value is passed, together with the frame id of the target frame, into
-`__divine_unwind` to perform the unwinding.
+Using these functions a function which throws an exception can be implemented:
+it goes through the stack asking for `_DivineLP_Info` in each frame beginning
+with its caller, and for each of them checks if the exception type matches any
+of the clauses in the `landingpad`. When a matching clause is found, the
+corresponding type id is set into the exception object which is then passed into
+a `personality` function. The personality function returns a value which should
+be returned from `landingpad` instruction, so this value is passed, together
+with the frame id of the target frame, into `__divine_unwind` to perform the
+unwinding.
 
 The `resume` instruction implementation is in the interpreter. It finds the
 nearest `invoke` in the call stack and transfers control to its `landingpad`
 which will return the value passed to the `resume`.
 
 Apart from the aforementioned exception handling the `__divine_unwind` is also
-usable for implementation of functions such as `pthread_exit` --- in this case
+usable for implementation of functions such as `pthread_exit`. In this case
 stack is fully unwound, which causes thread to terminate. Furthermore,
 \cite{RBB14} presents a minor extension of the exception handling mechanism
 which would allow implementation of `setjmp`/`longjmp` POSIX functions, but
@@ -410,10 +414,9 @@ which should be verified are encoded in the program using `LTL` macro. See
 ```{.cpp}
 #include <divine.h>
 
+enum APs { c1in, c1out, c2in, c2out };
 LTL(exclusion,
     G((c1in -> (!c2in W c1out)) && (c2in -> (!c1in W c2out))));
-
-enum APs { c1in, c1out, c2in, c2out };
 
 void critical1() {
     AP( c1in );
@@ -436,21 +439,22 @@ functions `critical1` and `critical2` cannot be executed in parallel.
 
 ## Userspace
 
-\divine has userspace support for C and C++ standard library, using PDCLib and
-libc++. This support is mostly complete, most notable missing parts are locale
-support (which is missing in PDCLib) and limited support for filesystem
+\divine has userspace support for C and C++ standard libraries, it uses PDCLib
+and libc++. This support is mostly complete, most notable missing parts are
+locale support (which is missing in PDCLib) and limited support for filesystem
 primitives (there is support for the creation of directory snapshot which can be
 accessed and processed using standard C, C++, or POSIX functions).
 
-Apart from standard libraries \divine provides `pthread` threading library
-which allows thread support for C and older versions of C++ which do not include
-thread support in the standard library. Furthermore, there is rudimentary support
-for POSIX-compatible filesystem functions, including certain types of UNIX
-domain sockets, however, this library is still under development at the time of
-writing of this thesis.
+Apart from standard libraries, \divine provides `pthread` threading library
+which provides thread support for C and older versions of C++ which do not
+include thread support in the standard library and is used as underlying
+implementation of C++11 threads. Furthermore, there is rudimentary support for
+POSIX-compatible filesystem functions, including certain types of UNIX domain
+sockets, however, this library is still under development at the time of writing
+of this thesis.
 
 From the point of this thesis, all the userspace is considered to be part of the
-verified program, that is any \llvm transformation runs on entire userspace, not
+verified program, that is, any \llvm transformation runs on entire userspace, not
 just the parts provided by the user of \divine.
 
 ## Reduction Techniques
@@ -462,26 +466,26 @@ necessary to employ state space reductions. \divine uses $\tau+$ reduction to
 eliminate unnecessary states which are indistinguishable by any safety or
 stuttering-free \ltl property and heap symmetry reduction when verifying \llvm
 \cite{RBB13}.  Furthermore, \divine uses lossless modeling language agnostic
-tree compression of entire state space \cite{RSB15}.
+tree compression of the entire state space \cite{RSB15}.
 
 ### $\tau+$ Reduction
 
 \label{sec:divine:tau}
 
-In \llvm, many instructions have no effect which would be observable by threads
-other than the one executing the instruction. This is true for all instructions
-which do not manipulate memory (they might still use registers, but registers
-are always private to the function in which they are declared), or might
-manipulate memory which is thread private.
+In \llvm, many instructions have no effect which could be observed by threads
+other than the one which executes the instruction. This is true for all
+instructions which do not manipulate memory (they might still use registers, but
+registers are always private to the function in which they are declared), or
+might manipulate memory which is thread private.
 
-\divine uses this observation to reduce state space --- it is possible to
-execute more than one instruction on a single edge in state space provided that
+\divine uses this observation to reduce state space. It is possible to execute
+more than one instruction on a single edge in the state space, provided that
 only one of them has effect visible by other threads (is *observable*). To do
 this, interpreter tracks if it executed any observable instruction, and emits
-state just before a second observable instruction is executed (this, of course, is
-suppressed in atomic sections, here only tracking takes place, but a state can be
-emitted only after the end of atomic section). To decide which instructions are
-observable \divine uses following heuristics:
+state just before a second observable instruction is executed (this, of course,
+is suppressed in atomic sections, here only tracking takes place, but a state
+can be emitted only after the end of atomic section). To decide which
+instructions are observable \divine uses the following heuristics:
 
 *   any instruction which does not manipulate memory is not observable (that is
     all instructions apart from `load`, `store`, `atomicrmw`, `cmpxchg` and
@@ -490,7 +494,7 @@ observable \divine uses following heuristics:
     concerned memory location can be visible by other threads, if it can the
     instruction is observable.
 
-To detect which memory can be accessed from particular threads \divine checks
+To detect which memory can be accessed from particular threads, \divine checks
 reachability of given memory object in memory graph (memory objects are nodes,
 pointers are edges of this graph). In order to check if thread *a* has access to
 memory object *x* it has to be checked that *x* is reachable either from global
@@ -500,7 +504,7 @@ the memory graph, \divine remembers which memory locations contain heap pointers
 \llvm and C++).
 
 [^memcpy]: In fact \divine 3.3 does not consider `__divine_memcpy` observable,
-this is a bug which I discovered and fixed during the writing of this thesis.
+this is a bug discovered and fixed during the writing of this thesis.
 
 However, in order to ensure that successor generation terminates, it is
 necessary to avoid execution of infinite loops (or recursion) on one edge in
@@ -514,11 +518,10 @@ of given instruction.
 # \lart
 
 \lart is a tool for \llvm transformation and optimization developed together
-with \divine, it was first introduced in the Ph.D. thesis of Petr Ročkai
-\cite{RockaiPhD} as a platform for implementation of static abstraction and
-refinement of \llvm programs. It is intended to integrate \llvm transformations
-and analyses in such a way that it would be easy to implement new and reuse
-existing analyses.
+with \divine, it was first introduced in \cite{RockaiPhD} as a platform for
+implementation of static abstraction and refinement of \llvm programs. It is
+intended to integrate \llvm transformations and analyses in such a way that it
+would be easy to implement new and reuse existing analyses.
 
 Before the time of writing of this thesis, \lart was never released and it
 contained few mostly incomplete analyses and a proof-of-concept version of

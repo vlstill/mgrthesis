@@ -21,7 +21,7 @@ For a verification tool to be useful to software developers it is important to
 minimize any extra effort the developers have to put into usage of such tool.
 Historically this effort was large as older generations of verifiers such as
 SPIN \cite{Hol97SPIN} and LTSmin \cite{ltsmin}, required manual translation of
-the verified program into a modeling language such as PROMELA. With the new
+the verified program into a modeling language such as ProMeLa. With the new
 generation of verifiers, such as \divine 3.0 \cite{DiVinE30} and CBMC
 \cite{CBMC}, special-purpose languages for verification are no longer required
 as these tools support direct verification of widely used programming languages
