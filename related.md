@@ -3,6 +3,34 @@
 
 # Relaxed Memory Models
 
+In modern CPUs, a write to memory location need not be immediately visible in
+other threads, for example due to caches or out-of-order execution. However most
+of the verification tools, including \divine, do not directly support
+verification with these relaxed memory models, instead they assume *sequential
+consistency*, that is immediate visibility of any write to memory.
+
+In Total Store Order memory model (which was used as basis for \cite{SRB15}),
+any write can be delayed infinitely but the order in which writes done by one
+thread become visible in other threads must match their execution order. This
+memory model can be simulated by store buffer. 
+
+The transformation presented in \cite{SRB15} implements under-approximation of
+TSO using bounded store buffer. In this case the buffer size is limited and if
+an entry is to be written into full store buffer, the oldest entry from the
+buffer is flushed into memory. With this limited store buffer the transformation
+can be reasonably implemented, and the resulting state space is finite if the
+state space of the original program was finite, therefore this transformation is
+suitable for explicit state model checking.
+
+The main limitation of the transformation proposed in \cite{SRB15} is that it
+does not fully support \llvm atomic instructions with other that sequential
+consistency ordering and it supports only TSO ordering. On the other hand the
+extended version proposed in this work does support all atomic ordering
+supported by \llvm and it does not implement TSO, instead it simulates memory
+model of \llvm and allows specification of which guarantees should be added to
+this memory model.
+
+
 The related work for verification of relaxed memory models is described in more
 details in \cite{SRB15}. As for memory models, the actual memory models
 implemented in hardware differ with CPU vendors, or even particular models of

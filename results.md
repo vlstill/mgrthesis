@@ -20,7 +20,9 @@ Name & \divine 3.3 & Old & + Control Flow & + Indep. Load & New & Reduction \\ \
 \texttt{lead-peters} &  12.3\,k & \\ % OLD = 12282933
 \texttt{pt-rwlock} & 14.2\,k & \\ % OLD = 14237025
 \texttt{elevator2} & 19\,M & 18\,M & 18\,M & 18\,M & 18\,M & $1.04\times$ \\
-\texttt{hs-2-1-0} & & 1.9\,M & 1.9\,M & 1.0\,M & 890\,k & \\
+\texttt{hs-2-1-0} & & 1.88\,M & 1.88\,M & 1.0\,M & 891\,k & \\
+\texttt{hs-2-1-1} & & 2.87\,M & 2.87\,M & 1.51\,M & 1.34\,M \\ % T=2871440, NEW=1341117
+\texttt{hs-2-2-2} & & 4.99\,M & 4.99\,M & 2.62\,M & 2.33\,M \\ % T=4990846, NEW=2328550
 \end{tabularx}
 \end{table}
 
