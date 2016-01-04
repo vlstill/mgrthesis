@@ -22,12 +22,12 @@ minimize any extra effort the developers have to put into usage of such tool.
 Historically this effort was large as older generations of verifiers such as
 SPIN \cite{Hol97SPIN} and LTSmin \cite{ltsmin}, required manual translation of
 the verified program into a modeling language such as ProMeLa. With the new
-generation of verifiers, such as \divine 3.0 \cite{DiVinE30} and CBMC
-\cite{CBMC}, special-purpose languages for verification are no longer required
-as these tools support direct verification of widely used programming languages
-such as C and C++ either directly or using \llvm intermediate representation (an
-intermediate language which can be used in translation of many programming
-languages, including C and C++).
+generation of verifiers, such as \divine 3 \cite{DiVinE30}, CBMC \cite{CBMC},
+and LLBMC \cite{LLBMC}, special-purpose languages for verification are no longer
+required as these tools support direct verification of widely used programming
+languages such as C and C++ either directly or using \llvm intermediate
+representation (an intermediate language which can be used in translation of
+many programming languages, including C and C++).
 
 \llvm IR in particular is becoming input language of choice for many verification
 tools. This assembly-like language is simpler to work with than higher level
