@@ -58,3 +58,11 @@ txt: $(ALL:.md=.txt)
 	sed -e ':a;N;$$!ba;s/\n\n/@NL@/g' $< | \
 		sed -e ':a;N;$$!ba;s/\n/ /g' -e 's/@NL@/\n\n/g' \
 			-e 's/\\autoref{[^}]*}//g' -e 's/\\//g' > $@
+
+rawdata :
+	mkdir -p rawdata/antea rawdata/aura rawdata/local
+	rsync -avc --progress antea:/home/xstill/DiVinE/next/benchmark/ rawdata/antea/
+	rsync -avc --progress aura:/home/xstill/DiVinE/next/benchmark/ rawdata/aura/
+	rsync -avc --progress /home/xstill/DiVinE/mainline/benchmark/ rawdata/local/
+
+.PHONY: rawdata
