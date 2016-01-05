@@ -3,10 +3,10 @@ ALL=$(wildcard *.md)
 all : thesis.pdf archive_README.pdf
 	make -C draft
 
-thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl
+thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl thesis.lua
 	./latexwrap $<
 
-thesis-print.pdf : thesis-print.tex $(ALL:.md=.tex) thesis-print.bbl
+thesis-print.pdf : thesis-print.tex $(ALL:.md=.tex) thesis-print.bbl thesis.lua
 	./latexwrap $<
 
 thesis-print.tex : thesis.tex
