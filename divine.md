@@ -397,17 +397,20 @@ stack is fully unwound, which causes thread to terminate. Furthermore,
 which would allow implementation of `setjmp`/`longjmp` POSIX functions, but
 this extension was not implemented in \divine.
 
-## \ltl \label{sec:divine:ltl}
+## \ltl
+
+\label{sec:divine:ltl}
 
 \ltl support in \divine is implemented using an explicit set of atomic
 propositions defined as `enum APs` in the verified program. These atomic
-propositions are activated explicitly using `AP` macro (which uses
-`__divine_ap` internally), and they are active in the state where `AP` is
-called. As a result of this explicit activation of atomic propositions, it is
-not possible for more that one atomic proposition to be true in any state,
-which limits user friendliness, but not expressive power. The \ltl properties
-which should be verified are encoded in the program using `LTL` macro. See
-\autoref{fig:divine:ltl} for an example of model with \ltl in \divine.
+propositions are activated explicitly using `AP` macro (which uses `__divine_ap`
+internally), and they are active in the state where `AP` is called. As a result
+of this explicit activation of atomic propositions, it is not possible for more
+that one atomic proposition to be true in any state and it is not possible to
+express certain formulas, namely $G(a)$ for $a \in \texttt{AP}$. The \ltl
+properties which should be verified are encoded in the program using `LTL`
+macro. See \autoref{fig:divine:ltl} for an example of model with \ltl in
+\divine.
 
 \begFigure[tp]
 
@@ -463,10 +466,11 @@ just the parts provided by the user of \divine.
 
 In order to make verification of real-world \llvm programs tractable it is
 necessary to employ state space reductions. \divine uses $\tau+$ reduction to
-eliminate unnecessary states which are indistinguishable by any safety or
-stuttering-free \ltl property and heap symmetry reduction when verifying \llvm
-\cite{RBB13}.  Furthermore, \divine uses lossless modeling language agnostic
-tree compression of the entire state space \cite{RSB15}.
+eliminate unnecessary intermediate states and heap symmetry reduction when
+verifying \llvm \cite{RBB13}. These reductions preserve all safety and \ltl
+properties which can be expressed in \divine. Furthermore, \divine uses lossless
+modeling language agnostic tree compression of the entire state space
+\cite{RSB15}.
 
 ### $\tau+$ Reduction
 

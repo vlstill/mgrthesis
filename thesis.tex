@@ -125,6 +125,8 @@
     \renewcommand{\subsectionautorefname}{Section}
 }
 
+\newcommand{\rot}[1]{\rotatebox{90}{#1\hspace*{0.5em}}}
+
 \begin{document}
 
 % initial pages from Mornfall + modifications
@@ -205,18 +207,17 @@ patience with me.
 \tableofcontents % prints table of contents
 \mainmatter
 
-
 \chapter{Introduction}\label{chap:introduction}
 \input{intro}
+
+\chapter{Related Work} \label{chap:related}
+\input{related}
 
 \chapter{\llvm} \label{chap:llvm}
 \input{llvm}
 
 \chapter{\divine} \label{chap:divine}
 \input{divine}
-
-\chapter{Related Work} \label{chap:related}
-\input{related}
 
 \chapter{Proposed \llvm Transformations} \label{chap:trans}
 \input{transform}
