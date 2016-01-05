@@ -253,7 +253,7 @@ intercepted and immediately resumed, and if the exception was intercepted by the
 original program, its processing must be left unchanged (while the fact that the
 exception is intercepted by `langingpad` and immediately resumed makes the run
 different from the run in the original program, this change is not
-distinguishable by any safety or stuttering-free \ltl property, and therefore
+distinguishable by any safety or stutter-invariant \ltl property, and therefore
 the transformed program can be considered equivalent to the original).
 
 After this transformation every exception is visible in every function it can
@@ -476,10 +476,10 @@ allow cleanup of `%y`.
 
 
 While this transformation changes the set of runs of the program all the runs in
-the original program have equivalent (from the point of safety and stuttering-free
-\ltl properties) runs transformed programs. The only difference is that there
-can be some intermediate states (which correspond to the cleanup) in the
-transformed program's runs.
+the original program have equivalent (from the point of safety and
+stutter-invariant \ltl properties) runs transformed programs. The only
+difference is that there can be some intermediate states (which correspond to
+the cleanup) in the transformed program's runs.
 
 ### Implementation
 

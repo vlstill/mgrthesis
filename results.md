@@ -2,14 +2,6 @@
 # Extensions of $\tau+$ Reduction
 
 \begin{table}[tp]
-\caption{Evaluation of improved $\tau+$ reduction. \divine 3.3 is used as a
-reference, it does not include any changes described in this thesis.
-\textit{Old} corresponds to original $\tau+$ reduction with several bugfixes,
-\textit{+ Control Flow} includes control flow loop detection optimization,
-\textit{+ Indep. Load} includes independent loads optimization, \textit{New}
-includes both optimizations.}
-
-\medskip
 \begin{tabularx}{\textwidth}{l|C|CCCC|C}
 Name & \divine 3.3 & Old & + Control Flow & + Indep. Load & New & Reduction \\ \hline
 \texttt{fifo} & 1836 & 1793 & 1767 & 793 & 791 & $2.32\times$ \\
@@ -18,12 +10,18 @@ Name & \divine 3.3 & Old & + Control Flow & + Indep. Load & New & Reduction \\ \
 \texttt{collision} & 3.1\,M & 3.3\,M & 3.3\,M & 2.0\,M & 2.0\,M & $1.56\times$ \\
 \texttt{lead-basic} &  19.3\,k & \\ % OLD = 19341906
 \texttt{lead-peters} &  12.3\,k & \\ % OLD = 12282933
-\texttt{pt-rwlock} & 14.2\,k & \\ % OLD = 14237025
+\texttt{pt-rwlock} & 14.2\,M & 14.2\,M & 8.66\,M & 6.54\,M & 4.48\,M & $3.18\times$ \\ % OLD = 14237025 NEW=4476710
 \texttt{elevator2} & 19\,M & 18\,M & 18\,M & 18\,M & 18\,M & $1.04\times$ \\
 \texttt{hs-2-1-0} & & 1.88\,M & 1.88\,M & 1.0\,M & 891\,k & \\
 \texttt{hs-2-1-1} & & 2.87\,M & 2.87\,M & 1.51\,M & 1.34\,M \\ % T=2871440, NEW=1341117
 \texttt{hs-2-2-2} & & 4.99\,M & 4.99\,M & 2.62\,M & 2.33\,M \\ % T=4990846, NEW=2328550
 \end{tabularx}
+\caption{Evaluation of improved $\tau+$ reduction. \divine 3.3 is used as a
+reference, it does not include any changes described in this thesis.
+\textit{Old} corresponds to original $\tau+$ reduction with several bugfixes,
+\textit{+ Control Flow} includes control flow loop detection optimization,
+\textit{+ Indep. Load} includes independent loads optimization, \textit{New}
+includes both optimizations.}
 \end{table}
 
 \label{sec:res:tau}
@@ -37,9 +35,6 @@ Name & \divine 3.3 & Old & + Control Flow & + Indep. Load & New & Reduction \\ \
 \label{sec:res:wm}
 
 \begin{table}[tp]
-\caption{Description of programs used as weak memory model benchmarks.}
-
-\medskip
 \begin{tabularx}{\textwidth}{lX}
 \texttt{simple} & A program similar to the one in \autoref{fig:trans:wm:sb}, two
 threads, each of them reads value written by the other one. Assertion violation
@@ -70,18 +65,10 @@ atomics. This model is parametrized, $T$ is number of threads, $N$ is number of
 elements inserted by each thread (elements inserted by each thread are
 distinct), $E$ is number of extra elements which are inserted by two threads.
 \end{tabularx}
+\caption{Description of programs used as weak memory model benchmarks.}
 \end{table}
 
 \begin{table}[tp]
-\caption{A summary of number of states in the state space for different weak
-memory simulation settings. The first line specifies the memory model (SC =
-Sequential Consistency, that is no transformation, TSO = Total Store Order, STD
-= \llvm memory model. The second line gives store buffer size. If the number of
-states is set in cursive it means that the property does not hold, and therefore
-the number might differ. Context-Switch-Directed-Reachability algorithm was
-used.}
-
-\medskip
 \begin{tabularx}{\textwidth}{l|C|CCC|CCC}
   & SC & \multicolumn{3}{c|}{TSO} & \multicolumn{3}{c}{STD} \\
   & - & 1 & 2 & 3 & 1 & 2 & 3 \\ \hline
@@ -92,19 +79,50 @@ used.}
 \texttt{fifo-bug} & \it 1.4\,k & \it 12\,k & \it 44\,k & \it 69\,k & \it 13\,k & \it 14\,k & \it 20\,k \\
 \texttt{hs-2-1-0} & 890\,k & 250\,M & & & 251\,M & &
 \end{tabularx}
+\caption{A summary of number of states in the state space for different weak
+memory simulation settings. The first line specifies the memory model (SC =
+Sequential Consistency, that is no transformation, TSO = Total Store Order, STD
+= \llvm memory model. The second line gives store buffer size. If the number of
+states is set in cursive it means that the property does not hold, and therefore
+the number might differ. Context-Switch-Directed-Reachability algorithm was
+used.}
 \end{table}
 
 ## Effects of Optimizations
 
 \begin{table}[tp]
 
-\begin{tabularx}{\textwidth}{l|CCCC|C}
-Name & No \lart & Cost \texttt{alloca} & \texttt{alloca} zero & Register zero & Reduction \\ \hline
-\texttt{fifo} & 791 & 791 & 791 & 791 & $1\times$ \\
-\texttt{fifo-bug} & \it 2876 & \it 2876 & \it 2876 & \it 2876 & $1\times$ \\
-\texttt{hs-2-1-0} & 890\,k & 875\,k & 889\,k &  \\
-\texttt{collision} & 1.96\,M & 1.96\,M & 1.96\,M & & \\
-\texttt{pt-rwlock} & & 4.47\,k & 4.47\,k & 1.21\,k  \\ % REG = 1213395
-\texttt{elevator2} & 17.7\,M &  \\ % NO = 17720078
+\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{1em}}}
+\begin{tabularx}{\textwidth}{|l|CCCCC|} \hline
+Name & \rname{fifo} & \rname{fifo-bug} & \rname{collision} & \rname{pt-rwlock} & \rname{elevator2} \\  \hline
+no \lart              & 791 & \it 2876 & 1.96\,M &     4.48\,M & \si{17720078} \\  \hline
+const \texttt{alloca} & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \si{11482370} \\
+const global          & 791 & \it 2876 & 1.96\,M &     4.48\,M & \si{17720078} \\
+alloca zero           & 791 & \it 2876 & 1.96\,M &     4.48\,M & \si{17720078} \\
+register zero         & 791 & \it 2876 & 1.96\,M &     4.48\,M &\\
+CA + CG               & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \\
+CA + CG + AZ          & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \\
+CA + CG + RZ          & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \\ \hline
+Reduction             & $1\times$  &    $1\times$    &        $1\times$ &    $1.001\times$ & \\ \hline 
+% RWL: NO=4476710, R=4472037
 \end{tabularx}
+\caption{Effects of \lart optimizations on state space size.}
+\end{table}
+
+\begin{table}[tp]
+
+\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{1em}}}
+\begin{tabularx}{\textwidth}{|l|CCCCC|} \hline
+Name & \rname{fifo} & \rname{fifo-bug} & \rname{collision} & \rname{pt-rwlock} & \rname{elevator2} \\  \hline
+no \lart              & \dmem{388724} & \it \dmem{388956} & \textbf{\dmem{487320}} & \dmem{1065352} & \dmem{1296532} \\  \hline
+const \texttt{alloca} & \dmem{343388} & \it \dmem{351824} & \dmem{489428} & \dmem{1054764} & \dmem{1217588} \\
+const global          & \dmem{389076} & \it \dmem{391584} & \dmem{512512} & \dmem{1115880} & \dmem{1141484} \\
+alloca zero           & \dmem{405092} & \it \dmem{403580} & \dmem{524944} & \dmem{1115768} & \dmem{1459052} \\
+register zero         & \dmem{391384} & \it \dmem{387960} & \dmem{513276} & \dmem{1102036} & \\
+CA + CG               & \textbf{\dmem{338960}} & \textbf{\textit{\dmem{339152}}}     & \dmem{487760} & \dmem{1038392} &  \\
+CA + CG + AZ          & \dmem{339172} & \it \dmem{339172} & \dmem{487920} & \textbf{\dmem{1032924}} &  \\
+CA + CG + RZ          & \dmem{342588} & \it \dmem{342588} & \dmem{488264} & \dmem{1035964} & \\ \hline
+Reduction             & \speedup{388724}{338960} & \speedup{388956}{339152} & \speedup{487320}{487320} & \speedup{1065352}{1032924} & \\ \hline 
+\end{tabularx}
+\caption{Effects of \lart optimizations on memory required for verification.}
 \end{table}
