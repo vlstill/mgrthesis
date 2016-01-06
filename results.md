@@ -1,3 +1,4 @@
+
 In this chapter we will evaluate the transformations proposed in
 \autoref{chap:trans}. All measurements were done on Linux on X86_64 machines
 with enough memory to run verification of the program in question. All numbers
@@ -9,6 +10,57 @@ measurements were performed with lossless tree compression enabled
 (`--compression`) and, unless explicitly stated otherwise, default setting of
 $\tau+$ reduction (which includes changes described in
 \autoref{sec:trans:tauextend}).
+
+Please note that results for cases when property does not hold depend on timing
+and number of processors used during the evaluation. To make these results
+distinguishable they are set in cursive font. Programs used in the evaluation
+are described in \autoref{tab:res:models}.
+
+\begin{table}
+\begin{tabularx}{\textwidth}{|lX|} \hline
+\texttt{simple} & A program similar to the one in \autoref{fig:trans:wm:sb}, two
+threads, each of them reads value written by the other one. Assertion violation
+can be detected with total store order. Written in C++, does not use C++11 atomics. \\
+\hline
+\texttt{peterson} & A version of well-known Peterson's mutual exclusion
+algorithm, valid under sequential consistency, not valid under total store order
+or more relaxed model. Written in C++, no C++11 atomics. \\
+\hline
+\texttt{fifo} & A fast communication queue for producer-consumer use with one
+producer and one consumer. This is used in \divine when running in distributed
+environment. The queue is designed for X86, it is correct unless stores can be
+reodered. Written in C++, the queue itself does not use C++11 atomics, the unit
+test does use one relaxed (monotonic) atomic variable. \\
+\hline
+\texttt{fifo-at} & A modification of \texttt{fifo} which uses C++11 atomics to
+ensure it works with memory models more relaxed then TSO. \\
+\hline
+\texttt{fifo-bug} & An older version of \texttt{fifo} which contains a data
+race. \\
+\hline
+\texttt{fifo-large} & Larger version of \texttt{fifo} test. \\
+\hline
+\texttt{hs-$T$-$N$-$E$} & A hight-performance, lock-free shared memory
+memory hash table used in \divine in shared memory setup~\cite{BRSW15}. Written
+in C++, uses C++11 atomics heavily, mostly sequential consistency is used for
+atomics. This model is parametrized, $T$ is number of threads, $N$ is number of
+elements inserted by each thread (elements inserted by each thread are
+distinct), $E$ is number of extra elements which are inserted by two threads. \\
+\hline
+\texttt{pt-rwlock} & A test for reader-writer lock in C. \\
+\hline
+\texttt{lead-dkr}  & A collision avoidance protocol written in C++, described in
+\cite{Jensen96modellingand}. \\
+\hline
+\texttt{collision} & A leader election algorithm written in C++, described in \cite{dolev:an}. \\
+\hline
+\texttt{elevator2} & This model is C++ version of elevator model from BEEM
+database \cite{beem}. It is a simulation of elevator planning. \\
+\hline
+\end{tabularx}
+\caption{Description of programs used in the evaluation.}
+\label{tab:res:models}
+\end{table}
 
 # Extensions of $\tau+$ Reduction
 
@@ -66,66 +118,99 @@ includes both optimizations.}
 
 # Weak Memory Models
 
-\iffalse
-\label{sec:res:wm}
+We evaluated relaxed memory models on the same benchmarks as in \cite{SRB15} and
+additionally on a unit test for concurrent hash table (`hs-2-1-0`). We used
+Context-Switch-Directed-Reachability algorithm \cite{SRB14} in all weak memory
+model evaluations as it tends to find bugs in programs with weak memory models
+faster (it explores runs with less context switches and therefore less store
+buffer flushing earlier).
 
-\begin{table}[tp]
-\begin{tabularx}{\textwidth}{lX}
-\texttt{simple} & A program similar to the one in \autoref{fig:trans:wm:sb}, two
-threads, each of them reads value written by the other one. Assertion violation
-can be detected with total store order. Written in C++, does not use C++11 atomics. \\ \hline
-
-\texttt{peterson} & A version of well-known Peterson's mutual exclusion
-algorithm, valid under sequential consistency, not valid under total store order
-or more relaxed model. Written in C++, no C++11 atomics. \\ \hline
-
-\texttt{fifo} & A fast communication queue for producer-consumer use with one
-producer and one consumer. This is used in \divine when running in distributed
-environment. The queue is designed for X86, it is correct unless stores can be
-reodered. Written in C++, the queue itself does not use C++11 atomics, the unit
-test does use one relaxed (monotonic) atomic variable. \\ \hline
-
-\texttt{fifo-at} & A modification of \texttt{fifo} which uses C++11 atomics to
-ensure it works with memory models more relaxed then TSO. \\ \hline
-
-\texttt{fifo-bug} & An older version of \texttt{fifo} which contains a data
-race. \\ \hline
-
-\texttt{fifo-large} & Larger version of \texttt{fifo} test. \\ \hline
-
-\texttt{hs-$T$-$N$-$E$} & A hight-performance, lock-free shared memory
-memory hash table used in \divine in shared memory setup \cite{BRSW15}. Written
-in C++, uses C++11 atomics heavily, mostly sequential consistency is used for
-atomics. This model is parametrized, $T$ is number of threads, $N$ is number of
-elements inserted by each thread (elements inserted by each thread are
-distinct), $E$ is number of extra elements which are inserted by two threads.
-\end{tabularx}
-\caption{Description of programs used as weak memory model benchmarks.}
-\end{table}
-\fi
+\autoref{tab:res:wm} shows state space sizes for programs with weak memory model
+simulation and compares it to the state space size of the original program. We
+can see that size increase varies largely, but the increase is quite large,
+anywhere from $7\times$ to $282\times$ increase for store buffer with slot for
+one store. We can also see that the difference between total store order and
+more relaxed memory model is not as significant as store buffer size increase,
+which suggests there is still a room for optimizations for TSO simulation.
+Benchmark `hs-2-1-0` shows that weak memory simulation is not yet easily
+applicable to more complex real-world code, in this case the verification
+required \dmem{32585028} of memory and almost half a day of runtime on 48 cores
+and larger versions of this model did not fit into $100\,\text{GB}$ memory limit.
+Nevertheless, for smaller real-world tests, such as `fifo` weak memory model
+simulation can be used even on common laptop.
 
 \begin{table}[tp]
 \begin{tabularx}{\textwidth}{|l|C|CCC|CCC|} \hline
-  & SC & \multicolumn{3}{c|}{TSO} & \multicolumn{3}{c|}{STD} \\
+  & SC & \multicolumn{3}{c|}{TSO} & \multicolumn{3}{c|}{TSO: Size increase} \\
   & - & 1 & 2 & 3 & 1 & 2 & 3 \\ \hline
-\texttt{simple}   &    \si{127} & \it 3.5\,k & \it 6\,k & \it 16\,k & \it 3.5\,k & \it 8\,k & \it 24\,k \\
-\texttt{peterson} &    \si{703} & \it 22\,k & \it 53\,k & \it 56\,k & \it 22\,k & \it 56\,k & \it 70\,k \\
-\texttt{fifo}     &    \si{791} & 15\,k & 36\,k & 48\,k & \it 18\,k & \textit{16\,k} & \textit{23\,k} \\
-\texttt{fifo-at}  &    \si{717} & 40\,k & 167\,k & 497\,k & 53\,k & 256\,k & 1\,M \\
-\texttt{fifo-bug} &      \textit{1.4\,k} & \it 12\,k & \it 44\,k & \it 69\,k & \it 13\,k & \it 14\,k & \it 20\,k \\
-\texttt{hs-2-1-0} & \si{890973} & \si{250390514} & & & 251\,M & & \\ \hline
+\texttt{simple}   &    \si{127} & \it\si{3445} & \it\si{5973} & \it\si{15663} & \speedup{3445}{127} & \speedup{5973}{127} & \speedup{15663}{127} \\
+\texttt{peterson} &    \si{703} & \it\si{21837} & \it\si{53443} & \it\si{55665} & \speedup{21837}{703} & \speedup{53443}{703} & \speedup{55665}{703} \\
+\texttt{fifo}     &    \si{791} & \si{14892} & \si{35865} & \si{48787} & \speedup{14892}{791} & \speedup{35865}{791} & \speedup{48787}{791} \\
+\texttt{fifo-at}  &    \si{717} & \si{39539} & \si{166621} & \si{497229} & \speedup{39539}{717} & \speedup{166621}{717} & \speedup{497229}{717} \\
+\texttt{fifo-bug} &\it\si{1611} & \it\si{11291} & \it\si{44192} & \it\si{68655} & \speedup{11291}{1611} & \speedup{44192}{1611} & \speedup{68655}{1611} \\
+\texttt{hs-2-1-0} & \si{890973} & \si{250390514} & -- & -- & \speedup{250390514}{890973} & -- & -- \\ \hline % 251\,M & & \\ \hline
+\end{tabularx}
+
+\par\medskip\par
+
+\begin{tabularx}{\textwidth}{|l|C|CCC|CCC|} \hline
+  & SC & \multicolumn{3}{c|}{STD} & \multicolumn{3}{c|}{STD: Size increase} \\
+  & - & 1 & 2 & 3 & 1 & 2 & 3 \\ \hline
+\texttt{simple}   &    \si{127} & \it\si{3522} & \it\si{8072} & \it\si{23609} & \speedup{3522}{127} & \speedup{8072}{127} & \speedup{23609}{127} \\
+\texttt{peterson} &    \si{703} & \it\si{21981} & \it\si{56336} & \it\si{69787} & \speedup{21981}{703} & \speedup{56336}{703} & \speedup{69787}{703} \\
+\texttt{fifo}     &    \si{791} & \it\si{18297} & \it\si{15648} & \it\si{22985} & \speedup{18297}{791} & \speedup{15648}{791} & \speedup{22985}{791} \\
+\texttt{fifo-at}  &    \si{717} & \si{53498} & \si{255636} & \si{1067735} & \speedup{53498}{717} & \speedup{255636}{717} & \speedup{1067735}{717} \\
+\texttt{fifo-bug} &\it\si{1611} & \it\si{12131} & \it\si{14142} & \it\si{21098} & \speedup{12131}{1611} & \speedup{14142}{1611} & \speedup{21098}{1611} \\
+\texttt{hs-2-1-0} & \si{890973} & \si{251249798} & -- & -- & \speedup{251249798}{890973} & -- & -- \\ \hline
 \end{tabularx}
 \caption{A summary of number of states in the state space for different weak
 memory simulation settings. The first line specifies the memory model (SC =
 Sequential Consistency, that is no transformation, TSO = Total Store Order, STD
 = \llvm memory model. The second line gives store buffer size. If the number of
 states is set in cursive it means that the property does not hold, and therefore
-the number might differ. Context-Switch-Directed-Reachability algorithm was
-used.}
+the number might differ.}
 \label{tab:res:wm}
 \end{table}
 
 ## Effects of Optimizations
+
+The optimization described in \autoref{sec:trans:wm:tau} were first evaluated in
+the context of the TSO memory model simulation presented in \cite{SRB15}. The
+results of this initial evaluation can be seen in \autoref{tab:res:wm:opt:old},
+*MEMICS* stands for the original version from \cite{SRB15}, *+ Load private*
+allows store buffers to be bypassed for memory locations which are dynamically
+detected to be thread private, and *+ Local* also avoids transformation for
+instructions which manipulate local variables which do not escape scope of the
+function in which they are defined. This evaluation does not include any changes
+in $\tau+$ reduction. We can see that effects of the optimizations are
+significant, especially for private loads optimization.
+
+\begin{table}[tp]
+\begin{tabularx}{\textwidth}{|l|c|CC|CC|C|} \hline
+Model                & MEMICS & \multicolumn{2}{c|}{$+$ Load private} & \multicolumn{2}{c|}{$+$ Local}  & SC \\ \hline
+\texttt{fifo-1}      & $44$ M  & $5.6$ M & $7.9\times$  & $1.2$ M & $4.6\times$ & $7$ K \\
+\texttt{fifo-2}      & $338$ M & $51$ M  & $6.6\times$   & $11$ M & $4.6\times$  & $7$ K \\
+\texttt{fifo-3}      & $672$ M & $51$ M  & $13\times$    & $11$ M & $4.6\times$  & $7$ K \\
+\texttt{simple-1}    & $538$ K & $19$ K  & $28\times$   & $11$ K & $1.7\times$  & 251 \\
+\texttt{peterson-2}  & $103$ K & $40$ K  & $2.6\times$   & $24$ K & $1.6\times$  & $1.4$ K \\
+\texttt{pt\_mutex-2} & $1.6$ M & $12$ K  & $135\times$ & $7.5$ K & $1.6\times$ & 98 \\ \hline
+\end{tabularx}
+
+\caption{Effects of private load optimization and local private variable
+optimization on the implementation from \cite{SRB15}. The number after model
+name is store buffer size.}
+\label{tab:res:wm:opt:old}
+\end{table}
+
+The same optimizations were evaluated in the final version of the
+transformation, these results can be seen in \autoref{tab:res:wm:opt}. Please
+note that while the original transformation bypassed store buffers for
+thread-private stores, the version proposed in this work does not do it as this
+optimization is not correct for \llvm memory model. Nevertheless, the new
+version performs an order of magnitude better in all cases, both thanks to
+enhanced state space reductions and more efficient implementation.
+
+
 
 # \llvm IR Optimizations
 
@@ -168,4 +253,50 @@ Reduction             & \speedup{388724}{338960} & \speedup{388956}{339152} & \s
 \end{tabularx}
 \caption{Effects of \lart optimizations on memory required for verification.}
 \label{tab:res:opt:mem}
+\end{table}
+
+\begin{table}[tp]
+\newcommand{\tline}[2]{\directlua{tex.sprint( wmoptline( "\luatexluaescapestring{#1}", { #2 } ) )}}
+
+\begin{tabularx}{\textwidth}{|l|C|CC|CC|} \hline
+Name & No \lart & \multicolumn{2}{c|}{Const \texttt{alloca}} & \multicolumn{2}{c|}{Const global} \\ \hline
+\tline{simple-tso-1}{3445, 3358, 3362} \\
+\tline{simple-tso-2}{5973, 5859, 5789} \\
+\tline{simple-tso-3}{15663, 15431, 15382} \\
+\tline{simple-std-1}{3522, 3376, 3382} \\
+\tline{simple-std-2}{8072, 7512, 7449} \\
+\tline{simple-std-3}{23609, 19694, 19439} \\
+\hline
+\tline{peterson-tso-1}{21837, 10795, 10993} \\
+\tline{peterson-tso-2}{53443, 33007, 32608} \\
+\tline{peterson-tso-3}{55665, 36026, 36448} \\
+\tline{peterson-std-1}{21981, 10965, 10771} \\
+\tline{peterson-std-2}{56336, 35581, 35518} \\
+\tline{peterson-std-3}{69787, 46224, 46141} \\
+\hline
+\tline{fifo-tso-1}{14892, 12741, 12717} \\
+\tline{fifo-tso-2}{35865, 30918, 30892} \\
+\tline{fifo-tso-3}{48787, 42130, 42098} \\
+\tline{fifo-std-1}{18297, 15700, 15674} \\
+\tline{fifo-std-2}{15648, 13243, 13634} \\
+\tline{fifo-std-3}{22985, 19601, 19880} \\
+\hline
+\tline{fifo-at-tso-1}{39539, 39289, 39265} \\
+\tline{fifo-at-tso-2}{166621, 165930, 165904} \\
+\tline{fifo-at-tso-3}{497229, 495975, 495943} \\
+\tline{fifo-at-std-1}{53498, 53105, 53079} \\
+\tline{fifo-at-std-2}{255636, 253624, 253478} \\
+\tline{fifo-at-std-3}{1067735, 1054035, 1052147} \\
+\hline
+\tline{fifo-bug-tso-1}{11291, 10191, 10059} \\
+\tline{fifo-bug-tso-2}{44192, 38558, 38765} \\
+\tline{fifo-bug-tso-3}{68655, 57202, 57709} \\
+\tline{fifo-bug-std-1}{12131, 10576, 10411} \\
+\tline{fifo-bug-std-2}{14142, 12425, 11890} \\
+\tline{fifo-bug-std-3}{21098, 17821, 17895} \\
+\hline
+\end{tabularx}
+
+\caption{Results of weak memory model examples with \lart optimizations.}
+\label{tab:res:wm:lopt}
 \end{table}

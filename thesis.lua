@@ -39,13 +39,25 @@ function unit( n, i, mul, suff )
 end
 
 function mem( n )
-    return unit( n, 1, 1024, memSuffixes );
+    return unit( n, 1, 1024, memSuffixes )
 end
 
 function si( n )
-    return unit( n, 1, 1000, siSuffixes );
+    return unit( n, 1, 1000, siSuffixes )
 end
 
 function speedup( x, y )
     return "$" .. nround( x / y, 3 ) .. "\\times$"
+end
+
+function wmoptline( name, array )
+    local str = "\\texttt{" .. name .. "}"
+    local base = array[1]
+    for i, v in ipairs( array ) do
+        str = str .. " & " .. si( v )
+        if i ~= 1 then
+            str = str .. " & " .. speedup( base, v )
+        end
+    end
+    return str
 end

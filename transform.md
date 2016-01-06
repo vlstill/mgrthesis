@@ -1736,6 +1736,8 @@ function exits, to do this we employ the local variable cleanup described in
 
 ## Integration with $\tau+$ Reduction
 
+\label{sec:trans:wm:tau}
+
 As described in \autoref{sec:divine:tau} one of important reduction techniques
 in \divine is $\tau+$ reduction which allows execution of multiple consecutive
 instructions in one atomic block if there is no more then one action observable
@@ -1809,8 +1811,8 @@ local variable was ever written to some other memory location. A more precise
 approximation could use pointer analysis to detect which memory locations can
 only be accessed from one thread.
 
-The evaluation of the original method proposed in \cite{SRB15}, as well as the
-optimizations proposed here can be found in \autoref{sec:res:wm:tau}.
+The evaluation of the proposed optimizations can be found in
+\autoref{sec:res:wm:tau}.
 
 ## Interaction With Atomic Sections
 
