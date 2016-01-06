@@ -81,21 +81,57 @@ relaxed memory models. With relaxed memory models, the visibility of an update
 to a shared memory location need not be visible immediately by other threads and
 it might be reordered with other updates to different memory locations. This
 adds yet another level of difficulty to already difficult programming of
-parallel programs --- memory models are hard to reason about and it is often
-hard to specify the desired behaviour in the programming language in question.
-While hardware commonly has support to ensure particular ordering of memory
-operations this is often not supported by programming languages, such as older
+parallel programs: memory models are hard to reason about and it is often hard
+to specify the desired behaviour in the programming language in question. While
+hardware commonly has support to ensure particular ordering of memory
+operations, this is often not supported by programming languages, such as older
 versions of C and C++. With newer programming languages, such as C11/C++11, it
 is possible to specify the behavior of the program precisely, but this is still
-a difficult problem.
+a difficult problem, especially for high-performance tasks when it is desirable
+to use weakest synchronization which is sufficient for correctness. For these
+reasons it is important to be able to verify programs under relaxed memory
+models. This is, however, not the case for many verifiers, even if they aim at
+verification of real-world programs.
 
-For these reasons it is important to be able to verify programs under relaxed
-memory models. This is, however, not the case for many model checkers, even if
-they aim at verification of real-world programs. For \divine, an
-proof-of-concept support for Total Store Order relaxed memory model was
-introduced in \cite{SRB15}. This support is based on \llvm transformation which
-automatically instruments the program-to-be-verified with store buffers, and
-this enriched program is verified with \divine.
+To further complicate the matter of relaxed memory models, the actual memory
+models implemented in hardware differ with CPU architectures, vendors, or even
+particular models of CPUs and detailed descriptions are usually not publicly
+available. For these reasons it would not be practical and feasible to verify
+programs with regard to a particular implementation of real-world memory model.
+Theoretical memory models which were proposed to allow analysis of programs
+under relaxed memory models, namely *Total Store Order* (TSO) \cite{SPARC94},
+*Partial Store Order* (PSO) \cite{SPARC94}. Also, programming language
+standards, such as C++11, and \llvm define memory models for programs written in
+the particular language \cite{llvm:atomics}. These theoretical memory models are
+usually described as constraints to allowed reordering of instructions which
+manipulate with memory. 
+
+In those theoretical models, an update may be deferred for an infinite amount of
+time. Therefore, even a finite state program that is instrumented with a
+possibly infinite delay of an update may exhibit an infinite state space. It has
+been proven that for such an instrumented program, the problem of reachability
+of a particular system configuration is decidable, but the problem of repeated
+reachability of a given system configuration is not
+\cite{Atig:2010:VPW:1706299.1706303}.
+
+A variety of ways to verify programs under relaxed memory models were proposed.
+The idea of using model checking was first discussed in the context of
+Mur$\varphi$ model checker which was used to generate all possible outcomes of
+small, assembly language, multiprocessor program for a given memory models
+\cite{Murphi, ParkDill99}. A technique which represents TSO store buffers with
+finite automata to represent possibly infinite set of its contents was
+introduced in \cite{TSO+} and later extended in \cite{Linden-mfence}.
+In the context of \divine, relaxed memory models were first discussed in the
+context of DVE modelling language \cite{BBH13LTL}.
+
+More recently, an proof-of-concept support for under-approximation of  Total
+Store Order relaxed memory model for C and C++ programs was introduced in
+\cite{SRB15}. This support is based on \llvm transformation which automatically
+instruments the program-to-be-verified with store buffers, and this enriched
+program is verified with \divine. The main limitation of the transformation
+proposed in \cite{SRB15} is that it does not fully support \llvm atomic
+instructions with other that sequential consistency ordering and it supports
+only TSO memory model.
 
 # Aims and Contributions of This Work
 
@@ -123,12 +159,11 @@ checkers, or even verifiers using different principles, provided they use \llvm
 as an input language and they have support for features required by these
 transformations.
 
-First, in \autoref{chap:related} we present related work, in
-\autoref{chap:llvm} we present \llvm intermediate representation and \llvm
-memory model, in \autoref{chap:divine} we present architecture of \divine.
-\autoref{chap:trans} demonstrates how \llvm transformations can be used to
-extend capabilities of model checker, in particular by adding weak memory
-support into \divine as \llvm transformation, and explores the usage of \llvm
-transformation for state space reductions.  In \autoref{chap:results}
-experimental evaluation of proposed techniques is given and finally chapter
-\autoref{chap:conclusion} concludes this work.
+The structure of the thesis is the following: first, in \autoref{chap:llvm} we
+present \llvm intermediate representation and \llvm memory model and in
+\autoref{chap:divine} we present architecture of \divine. \autoref{chap:trans}
+demonstrates how \llvm transformations can be used to extend capabilities of
+model checker, in particular by adding weak memory support into \divine as \llvm
+transformation, and explores the usage of \llvm transformation for state space
+reductions. \autoref{chap:results} presents experimental evaluation of proposed
+techniques and finally chapter \autoref{chap:conclusion} concludes this work.
