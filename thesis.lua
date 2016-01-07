@@ -50,11 +50,18 @@ function speedup( x, y )
     return "$" .. nround( x / y, 3 ) .. "\\times$"
 end
 
-function wmoptline( name, array )
+function wmoptline( name, array, mod )
     local str = "\\texttt{" .. name .. "}"
     local base = array[1]
+    if mod == nil then
+        mod = ""
+    end
     for i, v in ipairs( array ) do
-        str = str .. " & " .. si( v )
+        str = str .. " & "
+        if mod ~= "" then
+            str = str .. "\\" .. mod
+        end
+        str = str .. " " .. si( v )
         if i ~= 1 then
             str = str .. " & " .. speedup( base, v )
         end
