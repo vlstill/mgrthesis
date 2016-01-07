@@ -87,7 +87,7 @@ to specify the desired behaviour in the programming language in question. While
 hardware commonly has support to ensure particular ordering of memory
 operations, this is often not supported by programming languages, such as older
 versions of C and C++. With newer programming languages, such as C11/C++11, it
-is possible to specify the behavior of the program precisely. Nevertheless, this
+is possible to specify the behaviour of the program precisely. Nevertheless, this
 is still a difficult problem, especially for high-performance tasks when it is
 desirable to use the weakest synchronization which is sufficient for correctness.
 For these reasons, it is important to be able to verify programs under relaxed
