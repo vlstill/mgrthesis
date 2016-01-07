@@ -64,7 +64,7 @@ new state, while call in the loop will generate a new state before second
 invocation (as the `call` instruction repeats), and recursion will also generate
 a new state at the second entry of the recursive function.
 
-This improved reduction is now enabled by default. The original behavior can be
+This improved reduction is now enabled by default. The original behaviour can be
 obtained by option `--reduce=tau+,taustores` to `divine verify` command (the
 extended reduction can be explicitly enabled by `tau++` key in `reduce` option
 if necessary).
@@ -133,7 +133,7 @@ observable. If the same object is to be accessed for the second time during
 generation of the state the state is emitted just before this access. If a
 non-private object is to be loaded after a new value was stored into it a state
 is emitted before this load too. This reduction is now enabled by default, the
-original behavior can be obtained by option `--reduce=tau++,taustores` to
+original behaviour can be obtained by option `--reduce=tau++,taustores` to
 `divine verify` command (the extended reduction can be explicitly enabled by
 `tauloads` key in `reduce` option).
 
@@ -249,7 +249,7 @@ function.
 Therefore, we need to transform any call in such a way that if the called
 function can throw an exception it is always called by `invoke`, and all the
 `langingpad` instruction have `cleanup` flag. Furthermore, this transformation
-must not change observable behavior of the program. If an exception would
+must not change observable behaviour of the program. If an exception would
 fall through without being intercepted in the original program, it needs to be
 intercepted and immediately resumed, and if the exception was intercepted by the
 original program, its processing must be left unchanged (while the fact that the
@@ -1983,7 +1983,7 @@ bound for store buffers. The specification is given when \lart is invoked (see
     other operations have at least acquire-release ordering.
 
 `x86`
-~   for simulation of memory model similar to the one in X86 CPUs, in this case,
+~   for simulation of memory model similar to the one in `x86` CPUs, in this case,
     loads have at least acquire ordering, stores have at least release ordering
     and all other transformed operations have sequentially consistent ordering.
 
@@ -2023,14 +2023,14 @@ not meet two critical requirements for verification.
 
 *   **They can change satisfiability of verified property.** This is usually
     caused by the fact that compiler optimizations are not required to preserve
-    behavior of parallel programs, and that many programs written in C/C++
-    contain undefined behavior as they access non-atomic non-volatile variables
+    behaviour of parallel programs, and that many programs written in C/C++
+    contain undefined behaviour as they access non-atomic non-volatile variables
     from multiple threads. See \autoref{fig:trans:opt:undef} for an example of
     such property-changing optimization.
 
 *   **They might increase state space size.** Not all optimizations which lead
     to faster execution lead to faster verification as they might change
-    program behavior in such a way that model checker generates more states. An
+    program behaviour in such a way that model checker generates more states. An
     example of such transformation can be any transformation which increases the
     number of registers in a function, which might cause states which were
     originally considered to be the same to be distinct after such optimization.
@@ -2053,7 +2053,7 @@ int main() {
 }
 ```
 
-This code is an example of undefined behavior, the global non-atomic variable
+This code is an example of undefined behaviour, the global non-atomic variable
 `x` is written concurrently from two threads.  For this program assertion safety
 does not hold, the assertion can be violated if the assignment `x = 2` executes
 between `x = 1` and `assert( x == 1 )`.
@@ -2191,7 +2191,7 @@ note that the conditions ensure that only uses of the `alloca` are the single
 store into it, the loads which read it, and `llvm.dbg.declare` intrinsics.
 
 [^dbg]: This intrinsic is used to bind debugging information such as variable
-name with the variable's \llvm IR representation, it does not affect behavior of
+name with the variable's \llvm IR representation, it does not affect behaviour of
 the program in any way.
 
 ## Constant Global Variable Annotation
@@ -2356,7 +2356,7 @@ compiled to \llvm.
 
 3.  Using \lart, all reads and writes to global variables defined in the
     benchmark are set to be volatile. This is done because SV-COMP models often
-    contain undefined behavior such as concurrent access to non-volatile,
+    contain undefined behaviour such as concurrent access to non-volatile,
     non-atomic variable which could be optimized improperly for SV-COMP. This
     pass actually hides errors in SV-COMP benchmarks, nevertheless, it is
     necessary as SV-COMP benchmarks assume any use of shared variable will cause
