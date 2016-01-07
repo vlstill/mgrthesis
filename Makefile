@@ -13,6 +13,7 @@ thesis-print.tex : thesis.tex
 	sed -e 's/linkcolor={.*}/linkcolor={black}/' \
 		-e 's/citecolor={.*}/citecolor={black}/' \
 		-e 's/urlcolor={.*}/urlcolor={black}/' \
+		-e 's/\\iffalse.*%@ifprint/\\iftrue/' \
 		$< > $@
 
 %.bbl : bibliography.bib %.bcf

@@ -51,6 +51,7 @@
 \usepackage{pgf}
 \usepackage{tikz}
 \usetikzlibrary{arrows,positioning}
+\usepackage{pdfpages}
 
 \usepackage{multirow}
 \usepackage{microtype}
@@ -162,6 +163,13 @@
 \end{center}
  
 \cleardoublepage
+
+% only in print version!
+\iffalse %@ifprint
+\includepdf[pages={1}]{zadani.pdf}
+\includepdf[pages={1}]{prohlaseni.pdf}
+\cleardoublepage
+\fi
 
 \section*{Declaration} % from Mornfall
 Thereby I declare that this thesis is my original work, which I have
