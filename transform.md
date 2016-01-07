@@ -119,9 +119,12 @@ actions can execute atomically.
 Furthermore, the reduction can be extended to sequence of independent loads
 followed by a write into memory location distinct from all the memory locations
 of the loads. The argumentation is similar to the argumentation for the case of
-sequence of loads, a write from another thread which would happen after the
-loads, but before the write could be executed before the loads with the same
-effect.
+sequence of loads. If a write $w$ from another thread happens between the loads
+and the write $w'$ in the sequence, a write with the same effect can happen in
+the reduced state space too: if $w$ and $w'$ write to different memory locations
+that $w$ can happen after the sequence which ends with $w'$, otherwise all the
+loads in the sequence are independent of $w$ and therefore $w$ can happen before
+the sequence.
 
 \bigskip To implement this reduction \divine now tracks which memory objects
 were loaded while it generates a state. If a memory object is loaded for the
@@ -221,9 +224,9 @@ the following ways:
 *   by `resume` instruction which resumes propagation of exception which was
     earlier intercepted by `landingpad`;
 *   by explicit call to `__divine_unwind`;
-*   when exception causes unwinding, but the active instruction through which
+*   when exception causes unwinding, and the active instruction through which
     the exception is propagating is a `call` and not an `invoke`, or it is an `invoke`
-    but the associated `landingpad` does not catch exceptions of given type
+    and the associated `landingpad` does not catch exceptions of given type
     (in this case, the frame of the function is unwound and the exception is not
     intercepted).
 
@@ -231,12 +234,11 @@ The latest case happens often in C++ functions which do not require any
 destructors to be run at the end of the function. In those cases Clang usually
 generates a `call` instead of an `invoke` even if the callee can throw an
 exception as it is not necessary to intercept the exception in the caller. Also,
-if the function contains a `try` block, Clang will generate an `invoke` but since
-there is not need to run destructors the corresponding `landingpad` will not
-intercept exceptions which are not caught by any `catch` block. The problem with
-the latest case is that the function exit is implicit, it is possible at any
-`call` instruction which can throw or at an `invoke` with a `landingpad` without
-`cleanup` flag.
+if the function contains a `try` block, Clang will generate an `invoke` without
+`cleanup` flag in the `landingpad` as there is not need to run any destructors.
+The problem with the latest case is that the function exit is implicit, it is
+possible at any `call` instruction which can throw or at an `invoke` with a
+`landingpad` without `cleanup` flag.
 
 In order to make it possible to add code at the end of the function, it is
 therefore necessary to eliminate this implicit exit without interception of the
@@ -253,8 +255,8 @@ intercepted and immediately resumed, and if the exception was intercepted by the
 original program, its processing must be left unchanged (while the fact that the
 exception is intercepted by `langingpad` and immediately resumed makes the run
 different from the run in the original program, this change is not
-distinguishable by any safety or stutter-invariant \ltl property, and therefore
-the transformed program can be considered equivalent to the original).
+distinguishable by any safety or \ltl property supported by \divine, and
+therefore the transformed program can be considered equivalent to the original).
 
 After this transformation every exception is visible in every function it can
 propagate through. Now if we need to add cleanup code to the function it is
@@ -353,7 +355,7 @@ fin:
 ```
 
 A transformed version of `bar` function in which the exception is intercepted
-and, therefore, visible in this function, but it is immediately resumed. A cleanup
+and, therefore, visible in this function, and it is immediately resumed. A cleanup
 code would be inserted just before line 8. The original basic block `entry` was
 split into `entry` and `fin` and the `call` instruction was replaced with the
 `invoke` which transfers control to the `lpad` label if any exception is thrown
@@ -438,7 +440,7 @@ a valid \llvm bitcode, and therefore should be handled properly.
 \label{fig:trans:b:lvc:phi}
 \endFigure
 
-In this example, `%y` is defined in `if.then` basic block, but it needs to be
+In this example, `%y` is defined in `if.then` basic block and it needs to be
 cleared just before the `return` instruction at the end of `if.end` basic block,
 and the definition of `%y` does not dominate the cleaning point. The cleanup
 cannot be, in general, inserted after the last use of a local variable as the
@@ -476,10 +478,10 @@ allow cleanup of `%y`.
 
 
 While this transformation changes the set of runs of the program all the runs in
-the original program have equivalent (from the point of safety and
-stutter-invariant \ltl properties) runs transformed programs. The only
-difference is that there can be some intermediate states (which correspond to
-the cleanup) in the transformed program's runs.
+the original program have equivalent (from the point of safety and \ltl
+properties supported by \divine) runs transformed programs. The only difference
+is that there can be some intermediate states (which correspond to the cleanup)
+in the transformed program's runs.
 
 ### Implementation
 
@@ -529,7 +531,7 @@ int main() {
 \begCaption
 An example of composition problem with original \divine atomic sections.
 The atomic section begins on line 10 and is inherited to
-\texttt{doSomething}, but the atomic section ends by the unmask call at line 4
+\texttt{doSomething}. The atomic section ends by the unmask call at line 4
 and the rest of \texttt{doSomething} and \texttt{foo} are not executed
 atomically. The atomic section is then re-entered when \texttt{doSomething}
 returns.
@@ -758,12 +760,12 @@ given value is read from/stored to.
 \end{center}
 
 \caption{An illustration of a behaviour which is not possible with sequential
-consistency, but is possible with total store order.}
+consistency. It is however, possible with total store order.}
 \label{fig:trans:wm:sb}
 \endFigure
 
 The basic idea behind the proposed \llvm memory model simulation is that store
-buffer can be flushed nondeterministically in any order but not all orders
+buffer can be flushed nondeterministically in any order, however, not all orders
 result in valid runs of the program. The store buffer entries are enriched with
 information about the instruction which create them and therefore the validity
 of particular run can be checked when load, read fence, or atomic instruction is
@@ -807,7 +809,7 @@ instruction are met.
 The aim of the proposed transformation is to approximate \llvm memory model as
 closely as possible (except for the limitations given by bounded buffer). For
 this reason we support all atomic orderings apart from not atomic, which is
-modelled as unordered.[^unord] The store buffer is organized in FIFO manner, but
+modelled as unordered.[^unord] The store buffer is organized in FIFO manner,
 it is flushed nondeterministically in any order which satisfies the condition
 that no entry can be flushed into memory if there is an older *matching entry*.
 Entry $A$ matches entry $B$ (or depends on $B$) if both $A$ and $B$ change
@@ -821,8 +823,8 @@ concurrently written not atomic location is undefined while for unordered it is
 guaranteed to be one of the previously written values; however, on most modern
 hardware there is no difference between unordered and not atomic for object of
 size less or equal to 64 bits. Not atomic instructions also permit large variety
-of optimizations, but \divine should be applied on the bitcode after any desired
-transformations.
+of optimizations. However, this is not a problem as \divine should be applied on
+the bitcode after any desired transformations.
 
 Furthermore, the entry can be set as flushed using flushed flag, or deleted from
 the store buffer when it is flushed. The flushed flag is used only for monotonic
@@ -1170,8 +1172,8 @@ execution of this programs (only `load` and `store` instructions are shown).
     the entry is still remembered in the store buffer as it is release entry and
     future loads (it they have at least acquire ordering) will have to
     synchronize with it. It would be also possible to first flush entry for
-    `@x`, but in this case it would be removed from the store buffer as it is
-    the oldest entry, and therefore no explicit synchronization is necessary.
+    `@x`, in this case it would be removed from the store buffer as it is the
+    oldest entry, and therefore no explicit synchronization is necessary.
 
 \caption{Example of weak memory model simulation with store buffer, part II.}
 \label{fig:trans:wm:simple2}
@@ -1408,8 +1410,8 @@ it uses explicit fences to synchronize access to the global variable `x`.
 \end{tikzpicture}
 
 
-2.  The last entry from the store buffer is flushed, but the entry remains in
-    the store buffer as it is preceded by a release entry.
+2.  The last entry from the store buffer is flushed, the entry remains in the
+    store buffer as it is preceded by a release entry.
 
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
                    , semithick
@@ -2008,7 +2010,7 @@ compilation to increase its speed. To verify the code as precisely as possible
 it is desirable to verify \llvm IR with all optimizations which will be used in
 the binary version of the program, and the binary should be compiled by the same
 compiler as the \llvm IR used in \divine. Ideally it would be possible to use
-the same \llvm IR for verification and to build the binary, but this is not
+the same \llvm IR for verification and to build the binary. This is, however, not
 currently possible as \divine needs to re-implement library features (namely
 `pthreads` and C++ exception handling) and this implementation might not be
 compatible with the version used on given platform. Nevertheless, \divine should
@@ -2147,7 +2149,7 @@ An example of optimization with adverse effect on model checking.
 \endFigure
 
 For these reasons, we suggest some optimization techniques which would allow
-optimization of \llvm IR but not change verification outcome or increase state
+optimization of \llvm IR and not change verification outcome or increase state
 space size. On the other hand, these techniques can use specific knowledge about
 the verification environment they will be used in. Some of these techniques were
 already implemented as part of this thesis and are evaluated in
@@ -2161,11 +2163,12 @@ Especially with optimizations disabled, compilers often create `alloca`
 instructions (which correspond to stack-allocated local variables) even for
 local variables which need not have address and perform loads and stores into
 those memory locations instead of keeping the value in registers. To eliminate
-unnecessary `alloca` instructions \llvm provides register promotion pass, but
-this pass is not well suited for model checking as it can add registers into the
-function and in this way increase state space size. For this reason we introduce
-a pass which eliminates *constant* local variables, as these can be eliminated
-without adding registers (actually, some registers can be removed in this case).
+unnecessary `alloca` instructions \llvm provides register promotion pass,
+nevertheless, this pass is not well suited for model checking as it can add
+registers into the function and in this way increase state space size. For this
+reason we introduce a pass which eliminates *constant* local variables, as these
+can be eliminated without adding registers (actually, some registers can be
+removed in this case).
 
 In this case `alloca` instruction can be eliminated if the following conditions
 are met:
@@ -2210,8 +2213,8 @@ conditions:
 *   it must be never written to, neither directly nor through any pointer;
 *   it must have constant initializer.
 
-While the second condition can be checked from the definition of the global,
-the first one cannot be exactly determined efficiently, but it can be
+While the second condition can be checked from the definition of the global
+variable, the first one cannot be exactly determined efficiently, it can be
 approximated using pointer analysis.
 
 Currently \lart lacks working pointer analysis, so we used a simple heuristic
@@ -2316,10 +2319,10 @@ For verification of real-world programs it is useful to be able to constrain
 nondeterminism which can occur in them, for example as a result of call of
 `rand` function, which returns random number from some interval, usually from
 $0$ to $2^{31} - 1$. Such a nondeterminism is too large to be handled
-explicitly, but it often occurs in patterns like `rand() % N` for some fixed and
-usually small number `N`. In these cases it is sufficient to replace `rand() %
-N` with `__divine_choice( N )` which might be tractable for sufficiently small
-`N`.
+explicitly. Nevertheless, it often occurs in patterns like `rand() % N` for some
+fixed and usually small number `N`. In these cases it is sufficient to replace
+`rand() % N` with `__divine_choice( N )` which might be tractable for
+sufficiently small `N`.
 
 To automate this replacement at least in some cases a \llvm pass which tracks
 nondeterministic value and constraints the nondeterministic choice to smallest
@@ -2328,7 +2331,7 @@ which tracks nondeterminism only inside one function and recognizes two
 patterns, cast to `bool` and modulo constant number, can be found in
 `lart/svcomp/svcomp.cpp`, class `NondetTracking`. For a more complete
 implementation a limited symbolic execution of part of the program which uses the
-nondeterministic value could be used, but this is not implemented yet.
+nondeterministic value could be used. This is not implemented yet.
 
 # Transformations for SV-COMP 2016
 
@@ -2337,9 +2340,9 @@ SV-COMP is a competition of software verifiers associated with TACAS conference
 are written in C. \divine is participating in SV-COMP 2016 in the concurrency
 category which contains several hundred of short parallel C programs. Some of
 these programs have infinite state space (usually infinite number of threads),
-or use nondeterministic data heavily an therefore are not tractable by \divine,
-but there are many programs which can be verified by \divine, with some minor
-tweaks.
+or use nondeterministic data heavily an therefore are not tractable by \divine.
+There are, however, many programs which can be verified by \divine, with some
+minor tweaks.
 
 In order to make it possible to verify SV-COMP's programs with \divine, they
 have to be pre-processed, as they use some SV-COMP-specific functions and rely
@@ -2355,9 +2358,9 @@ compiled to \llvm.
     benchmark are set to be volatile. This is done because SV-COMP models often
     contain undefined behavior such as concurrent access to non-volatile,
     non-atomic variable which could be optimized improperly for SV-COMP. This
-    pass actually hides errors in SV-COMP benchmarks, but it is necessary as
-    SV-COMP benchmarks assume any use of shared variable will cause load from
-    it, which is not required by C standard.
+    pass actually hides errors in SV-COMP benchmarks, nevertheless, it is
+    necessary as SV-COMP benchmarks assume any use of shared variable will cause
+    load from it, which is not required by C standard.
 
 4.  \llvm optimizations are run, using \llvm `opt` with `-Oz` (optimizations for
     binary size).

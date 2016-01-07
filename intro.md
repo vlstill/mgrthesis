@@ -87,12 +87,12 @@ to specify the desired behaviour in the programming language in question. While
 hardware commonly has support to ensure particular ordering of memory
 operations, this is often not supported by programming languages, such as older
 versions of C and C++. With newer programming languages, such as C11/C++11, it
-is possible to specify the behavior of the program precisely, but this is still
-a difficult problem, especially for high-performance tasks when it is desirable
-to use weakest synchronization which is sufficient for correctness. For these
-reasons it is important to be able to verify programs under relaxed memory
-models. This is, however, not the case for many verifiers, even if they aim at
-verification of real-world programs.
+is possible to specify the behavior of the program precisely. Nevertheless, this
+is still a difficult problem, especially for high-performance tasks when it is
+desirable to use weakest synchronization which is sufficient for correctness.
+For these reasons it is important to be able to verify programs under relaxed
+memory models. This is, however, not the case for many verifiers, even if they
+aim at verification of real-world programs.
 
 To further complicate the matter of relaxed memory models, the actual memory
 models implemented in hardware differ with CPU architectures, vendors, or even
@@ -118,7 +118,7 @@ reachability of a given system configuration is not
 A variety of ways to verify programs under relaxed memory models were proposed.
 The idea of using model checking was first discussed in the context of
 Mur$\varphi$ model checker which was used to generate all possible outcomes of
-small, assembly language, multiprocessor program for a given memory models
+small, assembly language, multiprocessor program for a given memory model
 \cite{Murphi, ParkDill99}. A technique which represents TSO store buffers with
 finite automata to represent possibly infinite set of its contents was
 introduced in \cite{TSO+} and later extended in \cite{Linden-mfence}.

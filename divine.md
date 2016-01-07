@@ -181,7 +181,7 @@ Other
 Intrinsic functions allow the userspace to communicate with the interpreter, in
 order to allocate or free memory, create threads, report errors and so on. These
 functions are intended to be used by library writers, not by the users of
-\divine, but they are relevant to this work as some of them are used in
+\divine. Nevertheless, they are relevant to this work as some of them are used in
 proposed transformations. Since these functions are \divine specific, the
 transformations using them would need to be modified, or equivalent functions
 would have to be provided should the transformation be used for other tools.
@@ -230,8 +230,8 @@ instruction is part of an atomic section if it is executed inside a masked
 frame. If the executed function is a function call, the frame of the callee
 inherits the mask flag of the caller.  However, when `__divine_interrupt_unmask`
 is called it resets mask flag of its caller, leaving mask flags of functions
-lower in stack unmodified. This way that the current atomic section ends, but if
-the caller of `__divine_interrupt_unmask` was not the caller of
+lower in stack unmodified. This way that the current atomic section ends,
+however, if the caller of `__divine_interrupt_unmask` was not the caller of
 `__divine_interrupt_mask`, then a new atomic section will be entered after the
 caller of `__divine_interrupt_unmask` exits.
 
@@ -394,8 +394,8 @@ Apart from the aforementioned exception handling the `__divine_unwind` is also
 usable for implementation of functions such as `pthread_exit`. In this case
 stack is fully unwound, which causes thread to terminate. Furthermore,
 \cite{RBB14} presents a minor extension of the exception handling mechanism
-which would allow implementation of `setjmp`/`longjmp` POSIX functions, but
-this extension was not implemented in \divine.
+which would allow implementation of `setjmp`/`longjmp` POSIX functions; this
+extension is not implemented in \divine.
 
 ## \ltl
 
@@ -478,18 +478,18 @@ modeling language agnostic tree compression of the entire state space
 
 In \llvm, many instructions have no effect which could be observed by threads
 other than the one which executes the instruction. This is true for all
-instructions which do not manipulate memory (they might still use registers, but
-registers are always private to the function in which they are declared), or
-might manipulate memory which is thread private.
+instructions which do not manipulate memory (they might still use registers,
+which are always private to the function in which they are declared), or might
+manipulate memory which is thread private.
 
 \divine uses this observation to reduce state space. It is possible to execute
 more than one instruction on a single edge in the state space, provided that
 only one of them has effect visible by other threads (is *observable*). To do
 this, interpreter tracks if it executed any observable instruction, and emits
 state just before a second observable instruction is executed (this, of course,
-is suppressed in atomic sections, here only tracking takes place, but a state
-can be emitted only after the end of atomic section). To decide which
-instructions are observable \divine uses the following heuristics:
+is suppressed in atomic sections, here only tracking takes place, a state can be
+emitted only after the end of atomic section). To decide which instructions are
+observable \divine uses the following heuristics:
 
 *   any instruction which does not manipulate memory is not observable (that is
     all instructions apart from `load`, `store`, `atomicrmw`, `cmpxchg` and
