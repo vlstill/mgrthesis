@@ -5,15 +5,15 @@ next release of \divine.
 
 # Extensions to \divine
 
-In order to implement some of the proposed transformations it was necessary to
+In order to implement some of the proposed transformations, it was necessary to
 perform minor changes to the \llvm interpreter in \divine. All these changes are
 implemented in the version of \divine submitted with this thesis and are
 described in this section.
 
 ## Simplified Atomic Masks
 
-The original semantics of `__divine_interrupt_mask` was not well suited for
-composition of functions which use it. For this reason we reimplemented this
+The original semantics of `__divine_interrupt_mask` were not well suited for
+composition of functions which use it. For this reason, we reimplemented this
 feature so that it behaves as if `__divine_interrupt_mask` locks a global lock
 and `__divine_interrupt_unmask` unlocks it, and we devised a higher-level
 interface for this feature. This interface is described in
@@ -25,49 +25,49 @@ interface for this feature. This interface is described in
 void __divine_assume( int value );
 ```
 
-We extended \divine with a new intrinsic function which implements well-known
-assume statement. If `__divine_assume` is executed with zero `value` it stops
-the interpreter and causes it to ignore current state. `__divine_assume` is
-useful for implementation of synchronization primitives, for example in weak
-memory model simulation (see \autoref{sec:trans:wm}). This function should be
-used primarily by \divine developers, it combines well with atomic masks to
-create conditional transitions in state space.
+We extended \divine with a new intrinsic function which implements the
+well-known assume statement. If `__divine_assume` is executed with a zero
+`value` it, stops the interpreter and causes it to ignore the current state.
+`__divine_assume` is useful for implementation of synchronization primitives,
+for example in weak memory model simulation (see \autoref{sec:trans:wm}). This
+function should be used primarily by \divine developers; it combines well with
+atomic masks to create conditional transitions in the state space.
 
 ## Extended State Space Reductions
 
 \label{sec:trans:tauextend}
 
 When evaluating which transformations are useful for state space reductions, we
-identified several cases in which runtime solution by extension of $\tau+$
-reduction was more efficient. For this reason, reduction technique was improved,
-and these improvements are implemented in the version of \divine submitted with
-this thesis.  Please refer to \autoref{sec:divine:tau} for details about $\tau+$
-reduction.  The impact of the proposed changes to $\tau+$ reduction can be found
-in \autoref{sec:res:tau}.
+identified several cases in which a runtime solution by extension of the $\tau+$
+reduction was more efficient. For this reason, the existing reduction technique
+was improved, and these improvements are implemented in the version of \divine
+submitted with this thesis. Please refer to \autoref{sec:divine:tau} for details
+about $\tau+$ reduction. The evaluation of the impact of the proposed changes to
+$\tau+$ reduction can be found in \autoref{sec:res:tau}.
 
 ### Control Flow Cycle Detection
 
-First case is improvement on overly pessimistic control flow cycle detection
+First we improved upon the overly pessimistic control flow cycle detection
 heuristic. This detection is used to make sure successor generation terminates
 and it is based on detection of repeating program counter values. However, the
 set of encountered program counter values was originally reset only at the
-beginning of state generation. For this reason it was not possible to execute
-one function more that once on one edge in state space as program counter of
+beginning of state generation. For this reason, it was not possible to execute
+one function more that once on one edge in the state space as program counter of
 this function was already in the set of seen program counters on the second
 invocation. Therefore, a new state was generated before the function could be
-executed for second time which resulted in unnecessary states.
+executed for a second time, which resulted in unnecessary states.
 
 To alleviate this limitation, all program counter values of a function are
 deleted from the set of seen program counter values every time the function
-exits. This way two consecutive calls to the same function need not generate a
-new state, while call in the loop will generate a new state before second
-invocation (as the `call` instruction repeats), and recursion will also generate
-a new state at the second entry of the recursive function.
+exits. This way, two consecutive calls to the same function need not generate a
+new state, while a call in the loop will generate a new state before the second
+invocation (since the `call` instruction repeats), and recursion will also
+generate a new state at the second entry into the recursive function.
 
 This improved reduction is now enabled by default. The original behaviour can be
-obtained by option `--reduce=tau+,taustores` to `divine verify` command (the
-extended reduction can be explicitly enabled by `tau++` key in `reduce` option
-if necessary).
+obtained by option `--reduce=tau+,taustores` to `divine verify` (the extended
+reduction can be explicitly enabled by `tau++` key in the `--reduce` option if
+necessary).
 
 ### Independent Loads
 
@@ -75,33 +75,34 @@ Another case of overly strict reduction heuristic are independent loads from
 shared memory locations. Consider two shared memory locations (for example
 shared variables) $a$ and $b$ such that $a \neq b$. The proposition is that we
 can extend $\tau+$ reduction in such a way that load from $a$ and load from $b$
-can be performed without the intermediate state (that is on a single edge in
+can be performed without an intermediate state (that is, on a single edge in
 the state space). We will now show correctness of this proposition.
 
 Suppose thread $t1$ performs load of $a$ and then load of $b$ (and there are no
-action which would be considered observable by $\tau+$ in-between).
+actions which would be considered observable by $\tau+$ in-between).
 
-*   If any other thread performs load of $a$ or $b$ this clearly does not
+*   If any other thread performs a load of $a$ or $b$, this clearly does not
     interfere with $t1$.
-*   If some other thread $t2$ writes[^store] into $a$ this write is always
+*   If some other thread $t2$ writes[^store] into $a$, this write is always
     an observable action and it can happen either
 
-    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$, in
-        these case the proposed change has no effect;
-    b)  after the load of $a$, but before the load of $b$ by $t1$, this case is
+    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$; in
+        these cases the proposed change has no effect;
+    b)  after the load of $a$, but before the load of $b$ by $t1$; this case is
         not possible with the extended reduction, but equivalent result can be
         obtained if $a$ is written after the load of $b$, as this load is
-        independent and therefore its result does not depend on value of $a$.
+        independent and therefore its result does not depend on the value of
+        $a$.
 
-*   If some other thread $t2$ writes into $b$ this write is always an observable
+*   If some other thread $t2$ writes into $b$, this write is always an observable
     action and it can happen either
 
-    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$, in
+    a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$; in
         these cases the proposed change has no effect;
-    b)  after the load of $a$, but before the load of $b$ by $t1$, again, this
-        case is not possible with the extended reduction but equivalent result
-        can be obtained if $b$ is written before the load of $a$ (it does not
-        change its result as $a \neq b$).
+    b)  after the load of $a$, but before the load of $b$ by $t1$; again, this
+        case is not possible with the extended reduction but an equivalent
+        result can be obtained if $b$ is written before the load of $a$ (it does
+        not change its result as $a \neq b$).
 
 *   There can be no synchronization which would disallow any of the
     aforementioned interleavings as thread $t2$ cannot detect where in the
@@ -109,33 +110,33 @@ action which would be considered observable by $\tau+$ in-between).
     (there are no visible actions between the loads).
 
 *   On the other hand, if there are any other visible actions between these
-    loads, or if $a = b$ then the conditions are not met and the loads are not
+    loads, or if $a = b$, the conditions are not met and the loads are not
     performed atomically.
 
-The same argumentation can be applied to more than two independent loads from a
-single thread, this way any sequence of independent loads and unobservable
+The same argument can be applied to more than two independent loads from a
+single thread; this way, any sequence of independent loads and unobservable
 actions can execute atomically.
 
-Furthermore, the reduction can be extended to sequence of independent loads
-followed by a write into memory location distinct from all the memory locations
-of the loads. The argumentation is similar to the argumentation for the case of
-sequence of loads. If a write $w$ from another thread happens between the loads
+Furthermore, the reduction can be extended to a sequence of independent loads
+followed by a write into a memory location distinct from all the memory locations
+of the loads. The argument is similar to the argumentation for the case of
+a sequence of loads. If a write $w$ from another thread happens between the loads
 and the write $w'$ in the sequence, a write with the same effect can happen in
 the reduced state space too: if $w$ and $w'$ write to different memory locations
-that $w$ can happen after the sequence which ends with $w'$, otherwise all the
+than $w$ can happen after the sequence which ends with $w'$; otherwise, all the
 loads in the sequence are independent of $w$ and therefore $w$ can happen before
 the sequence.
 
-\bigskip To implement this reduction \divine now tracks which memory objects
+\bigskip To implement this reduction, \divine now tracks which memory objects
 were loaded while it generates a state. If a memory object is loaded for the
 first time, its address is saved and this load is not considered to be
 observable. If the same object is to be accessed for the second time during
-generation of the state the state is emitted just before this access. If a
-non-private object is to be loaded after a new value was stored into it a state
-is emitted before this load too. This reduction is now enabled by default, the
-original behaviour can be obtained by option `--reduce=tau++,taustores` to
-`divine verify` command (the extended reduction can be explicitly enabled by
-`tauloads` key in `reduce` option).
+generation of the state, the state is emitted just before this access. If a
+non-private object is to be loaded after a new value was stored into it, a state
+is emitted before this load too. This reduction is now enabled by default; the
+original behaviour can be obtained by using the option
+`--reduce=tau++,taustores` to `divine verify` (the extended reduction can be
+explicitly enabled by the `tauloads` key in the `--reduce` option).
 
 [^store]: Write  can be implemented using `store`, `atomicrmw`, or `cmpxchg`
 instructions, or by `__divine_memcpy` intrinsic.
@@ -146,55 +147,57 @@ Many tasks done in \llvm transformations are common and, therefore, should be
 provided as separate and reusable analyses or transformation building blocks, so
 that they can be readily used when required and it is not necessary to implement
 them ad-hoc every time. In some cases (for example dominator tree and domination
-relation) analyses are provided in the \llvm library, and \llvm also provides
+relation), analyses are provided in the \llvm library, and \llvm also provides
 useful utilities for instruction and basic block manipulation, such as basic
 block splitting and instruction insertion. In other cases, it is useful to add
-to this set of primitives and, for this reason, \lart was extended to include
+to this set of primitives, and, for this reason, \lart was extended to include
 several such utilities.
 
 ## Fast Instruction Reachability
 
 \label{sec:trans:b:reach}
 
-While \llvm has support to check whether value of one instruction might reach
-some other instruction (using `isPotentiallyReachable` function) this function is
-slow if many-to-many reachability is to be calculated (this function's time
-complexity is linear with respect to the number of basic blocks in the control flow
-graph of the function).  For this reason, we introduce analysis which
-pre-calculates reachability relation between all instructions and allows fast
-querying, this analysis can be found in `lart/analysis/bbreach.h`.
+While \llvm has support for checking whether the value of one instruction might
+reach some other instruction (using the `isPotentiallyReachable` function), this
+function is slow if many-to-many reachability is to be calculated (this
+function's time complexity is linear with respect to the number of basic blocks
+in the control flow graph of the function).  For this reason, we introduce an
+analysis which pre-calculates the reachability relation between all instructions
+and allows fast querying; this analysis can be found in
+`lart/analysis/bbreach.h`.
 
-To calculate instruction reachability fast and store it compactly, we store
-transitive closure of basic block reachability instead, transitive closure of
-instruction reachability can be easily retrieved from this information.
-Instruction $i$ other than `invoke` reaches instruction $j$ in at least one step
-if and only if the basic block $b(i)$ of instruction $i$ reaches in at least one
-step basic block $b(j)$ of instruction $j$ or $b(i) = b(j)$ and $i$ is earlier
-in $b(i)$ than $j$. For `invoke` instruction the situation is more complicated
-as it is the only terminator instruction which returns a value, and its value is
-available only in its normal destination block and not in its unwind destination
-block (the landing block which is used when the function called by the `invoke`
-throws an exception). For this reason, the value of `invoke` instruction $i$
-reaches instruction $j$ if and only if $b(j)$ is reachable (in any number of
-steps, including zero) from normal destination basic block of $i$.
+To calculate instruction reachability quickly and store it compactly, we store
+the transitive closure of basic block reachability instead; the transitive
+closure of instruction reachability can be easily retrieved from this
+information.  Instruction $i$ other than `invoke` reaches instruction $j$ in at
+least one step if and only if the basic block $b(i)$ of instruction $i$ reaches
+in at least one step the basic block $b(j)$ of instruction $j$ or if $b(i) =
+b(j)$ and $i$ is earlier in $b(i)$ than $j$. For the `invoke` instruction, the
+situation is more complicated as it is the only terminator instruction which
+returns a value, and its value is available only in its normal destination block
+and not in its unwind destination block (the landing block which is used when
+the function called by the `invoke` throws an exception). For this reason, the
+value of `invoke` instruction $i$ reaches instruction $j$ if and only if $b(j)$
+is reachable (in any number of steps, including zero) from the normal
+destination basic block of $i$.
 
 Basic block reachability is calculated in two phases, first the basic block
 graph of the function is split into strongly connected components using Tarjan's
-algorithm. This results into directed acyclic graph of strongly connected
+algorithm. This results in a directed acyclic graph of strongly connected
 components. This SCC collapse is recursively traversed and the transitive
 closure of SCC reachability is calculated.
 
 The theoretical time complexity of this algorithm is linear in the size of the
 control flow graph of the function (which is in the worst case
 $\mathcal{O}(n^2)$ where $n$ is the number of basic blocks). In practice, associative
-maps are used in several parts of the algorithm resulting in the worst case
+maps are used in several parts of the algorithm, resulting in the worst case
 time complexity in $\mathcal{O}(n^2 \cdot \log n)$ for transitive closure
 calculation and $\mathcal{O}(\log n)$ for retrieval of the information whether
 one block reaches another. However, since in practice control flow graphs
 are sparse,[^sparsecfg] the expected time complexity is $\mathcal{O}(n \log n)$
 for transitive closure calculation.
 
-[^sparsecfg]: The argumentation is that all terminator instructions other that
+[^sparsecfg]: The argument is that all terminator instructions other that
 `switch` have at most two successors and `switch` is rare, for this reason, the
 average number of edges in control flow graph with $n$ basic blocks is expected
 to be less than $2n$.
@@ -204,41 +207,41 @@ to be less than $2n$.
 
 \label{sec:trans:b:vex}
 
-Often \llvm is transformed in a way which requires that certain cleanup action
-is performed right before a function exits, one such example would be unlocking
-atomic section, used in \autoref{sec:trans:atomic}. Implementing this for
+Often, \llvm is transformed in a way which requires that certain cleanup action
+is performed right before a function exits; one such example would be unlocking
+atomic sections, used in \autoref{sec:trans:atomic}. Implementing this for
 languages without non-local control flow transfer other than with `call` and
 `ret` instructions, for example standard C, would be fairly straightforward.  In
-this case it is sufficient to run the cleanup just before the function returns.
+this case, it is sufficient to run the cleanup just before the function returns.
 However, while pure standard-compliant C has no non-local control transfer, in
 POSIX there are `setjmp` and `longjmp` functions which allow non-local jumps
-and, even more importantly, C++ has exceptions already in its standard. Since
-`longjmp` and `setjmp` are not supported in \divine we will assume they will not
-be used in the transformed program. On the other hand, exceptions are supported
-by \divine and, therefore, should be taken into account.
+and, even more importantly, C++ has exceptions in its standard. Since `longjmp`
+and `setjmp` are not supported in \divine, we will assume they will not be used
+in the transformed program. On the other hand, exceptions are supported by
+\divine and, therefore, should be taken into account.
 
-In the presence of exceptions (but without `longjmp`), function can be exited in
-the following ways:
+In the presence of exceptions (but without `longjmp`); a function can be exited
+in the following ways:
 
-*   by `ret` instruction;
-*   by `resume` instruction which resumes propagation of exception which was
-    earlier intercepted by `landingpad`;
-*   by explicit call to `__divine_unwind`;
-*   when exception causes unwinding, and the active instruction through which
+*   by a `ret` instruction;
+*   by a `resume` instruction which resumes propagation of an exception which was
+    earlier intercepted by a `landingpad`;
+*   by an explicit call to `__divine_unwind`;
+*   when an exception causes unwinding, and the active instruction through which
     the exception is propagating is a `call` and not an `invoke`, or it is an `invoke`
-    and the associated `landingpad` does not catch exceptions of given type
-    (in this case, the frame of the function is unwound and the exception is not
-    intercepted).
+    and the associated `landingpad` does not catch exceptions of given type;
+    in this case, the frame of the function is unwound and the exception is not
+    intercepted.
 
 The latest case happens often in C++ functions which do not require any
-destructors to be run at the end of the function. In those cases Clang usually
+destructors to be run at the end of the function. In those cases, Clang usually
 generates a `call` instead of an `invoke` even if the callee can throw an
-exception as it is not necessary to intercept the exception in the caller. Also,
+exception, as it is not necessary to intercept the exception in the caller. Also,
 if the function contains a `try` block, Clang will generate an `invoke` without
-`cleanup` flag in the `landingpad` as there is not need to run any destructors.
-The problem with the latest case is that the function exit is implicit, it is
-possible at any `call` instruction which can throw or at an `invoke` with a
-`landingpad` without `cleanup` flag.
+a `cleanup` flag in the `landingpad` as there is no need to run any destructors.
+The problem with the last case is that the function exit is implicit: it is
+possible at any `call` instruction which can throw, or at an `invoke` with a
+`landingpad` without a `cleanup` flag.
 
 In order to make it possible to add code at the end of the function, it is
 therefore necessary to eliminate this implicit exit without interception of the
@@ -247,28 +250,28 @@ interfere with exception handling which was already present in the transformed
 function.
 
 Therefore, we need to transform any call in such a way that if the called
-function can throw an exception it is always called by `invoke`, and all the
-`langingpad` instruction have `cleanup` flag. Furthermore, this transformation
-must not change observable behaviour of the program. If an exception would
+function can throw an exception, it is always called by `invoke`, and all the
+`langingpad` instructions have a `cleanup` flag. Furthermore, this transformation
+must not change the observable behaviour of the program. If an exception would
 fall through without being intercepted in the original program, it needs to be
 intercepted and immediately resumed, and if the exception was intercepted by the
 original program, its processing must be left unchanged (while the fact that the
-exception is intercepted by `langingpad` and immediately resumed makes the run
+exception is intercepted by a `langingpad` and immediately resumed makes the run
 different from the run in the original program, this change is not
 distinguishable by any safety or \ltl property supported by \divine, and
 therefore the transformed program can be considered equivalent to the original).
 
-After this transformation every exception is visible in every function it can
-propagate through. Now if we need to add cleanup code to the function it is
-sufficient to add it before every `ret` and `resume` instruction, and before
-calls to `__divine_unwind` as there is no other way the function can be exited.
+After this transformation, every exception is visible in every function it can
+propagate through. Now if we need to add cleanup code to the function, it is
+sufficient to add it before every `ret` and `resume` instruction and before
+calls to `__divine_unwind`, as there is no other way the function can be exited.
 
 If `setjmp`/`longjmp` were implemented as an extension of exception handling
-support as described in \cite{RBB14} it would require minor modification of this
+support as described in \cite{RBB14}, it would require minor modification of this
 transformation. It would be necessary to run transformation cleanups, but not
 cleanups done by higher level language (such as C++ destructors) when unwinding
-is caused by `longjmp` (`longjmp` is not required to trigger destructors in C++,
-in fact it is undefined behaviour to cause unwinding of any function with
+is caused by `longjmp` (`longjmp` is not required to trigger destructors in C++;
+in fact, it is undefined behaviour to cause unwinding of any function with
 nontrivial destructors by `longjmp`). To achieve this, a fresh selector ID for
 `longjmp` would be assigned and a `catch` clause corresponding to this ID would
 be added to each `langingpad`. If this clause is triggered, only transformation
@@ -279,39 +282,40 @@ cleanups would be run before the unwinding would be resumed.
 The idea outlined above is implemented in `lart/support/cleanup.h` by the
 function `makeExceptionsVisible`. Any `call` instruction for which we cannot
 show that the callee cannot throw an exception is transformed into an `invoke`
-instruction, which allows as to branch out into a landing block if an exception
-is thrown by the callee. The `landingpad` in the landing block need to be set up
-in a way in can catch any exception (this can be done using `cleanup` flag for
-`landingpad`). The instrumentation can be done as follows:
+instruction, which allows us to branch out into a landing block if an exception
+is thrown by the callee. The `landingpad` in the landing block needs to be set
+up so that it can catch any exception (this can be done using the `cleanup` flag
+for `landingpad`). The instrumentation can be done as follows:
 
 *   for a call site, if it is a `call`:
 
     1.  given a `call` instruction to be converted, split its basic block into
         two just after this instruction (we will call these blocks *invoke
-        block* and *invoke-ok block*),
-    2.  add a new basic block for cleanup, this block will contain a
-        `landingpad` instruction with `cleanup` flag and no `catch` clauses and
-        a `resume` instruction (we will call this block *invoke-unwind block*),
-    3.  replace the `call` instruction with an `invoke` with the same function
-        and parameters, its normal destination is set to invoke-ok block and its
-        unwind destionation is set to invoke-unwind block,
+        block* and *invoke-ok block*);
+    2.  add a new basic block for cleanup; this block will contain a
+        `landingpad` instruction with a `cleanup` flag and no `catch` clauses and
+        a `resume` instruction (we will call this block *invoke-unwind block*);
+    3.  replace the `call` instruction with an `invoke` of the same function
+        and with the same parameters, its normal destination is set to the
+        invoke-ok block and its unwind destination is set to invoke-unwind
+        block;
 
 *   otherwise, if it is an `invoke` and its unwind block does not contain
-    `cleanup` flag in the `landingpad`:
+    the `cleanup` flag in the `landingpad`:
 
     1.  create a new basic block which contains just a resume instruction
         (*resume block*)
     2.  add `cleanup` flag into the `landingpad` of the unwind block of the
-        `invoke` and branch into the *resume block* if landing block is
+        `invoke` and branch into the *resume block* if the landing block is
         triggered due to `cleanup` (selector value is $0$),
 
 *   otherwise leave the instruction unmodified.
 
-Any calls using `call` instruction with known destination which is a function
-marked with `nounwind` attribute will not be modified. Functions marked with
-`nounwind` need not be checked for exceptions as \llvm states that these
+Any calls using the `call` instruction with a known destination which is a function
+marked with `nounwind` will not be modified. Functions marked with
+`nounwind` need not be checked for exceptions since \llvm states that these
 functions should never throw an exception and therefore we assume that throwing
-and exception from such a function will be reported as an error by the verifier.
+an exception from such a function will be reported as an error by the verifier.
 
 \begFigure[tp]
 
@@ -324,7 +328,7 @@ int main() {
 }
 ```
 
-An example of simple C++ program which demonstrates use of exceptions, the
+An example of a simple C++ program which demonstrates use of exceptions, the
 exception is thrown by `foo`, goes through `bar` and is caught in `main`.
 
 ```{.llvm}
@@ -354,13 +358,13 @@ fin:
 }
 ```
 
-A transformed version of `bar` function in which the exception is intercepted
-and, therefore, visible in this function, and it is immediately resumed. A cleanup
-code would be inserted just before line 8. The original basic block `entry` was
-split into `entry` and `fin` and the `call` instruction was replaced with the
-`invoke` which transfers control to the `lpad` label if any exception is thrown
-by `foo`.  The function header is now extended with personality function, this
-personality function calculates the value returned by `landingpad` for given
+A transformed version of `bar` in which the exception is intercepted and,
+therefore, visible in this function, and it is immediately resumed. Cleanup code
+would be inserted just before line 8. The original basic block `entry` was split
+into `entry` and `fin` and the `call` instruction was replaced with an `invoke`
+which transfers control to the `lpad` label if any exception is thrown by `foo`.
+The function header is now extended with a personality function and this
+personality function calculates the value returned by `landingpad` for a given
 exception.
 
 \caption{An example of the transformation of a function which makes exceptions
@@ -368,16 +372,16 @@ visible.}
 \label{fig:transform:b:vex:example}
 \endFigure
 
-After the call instrumentation, the following holds: every time the function is
-entered by stack unwinding due to an active exception, the control is transfered to
-a landing block and, if before this transformation the exception would not be
-intercepted by `landingpad` in this function, after the transformation the
-exception will be rethrown by `resume`.
+After the call instrumentation, the following holds: every time a function is
+entered during stack unwinding due to an active exception, the control is
+transfered to a landing block. Moreover, if before this transformation the
+exception would not have been intercepted by `landingpad` in this function,
+after the transformation the exception will be rethrown by `resume`.
 
-Furthermore, if the transformation adds `landingpad` into a function which did
-not contain `landingpad` before, it is necessary to set personality function for
-this function. For this reason, personality function which is used by the
-program is a parameter of the transformation.
+Furthermore, if the transformation adds a `landingpad` into a function which did
+not contain any `landingpad` before, it is necessary to set a personality
+function for this function. For this reason, the personality function which is
+used by the program is a parameter of the transformation.
 
 An example of the transformation can be seen in
 \autoref{fig:transform:b:vex:example}.
@@ -2356,25 +2360,25 @@ compiled to \llvm.
 
 3.  Using \lart, all reads and writes to global variables defined in the
     benchmark are set to be volatile. This is done because SV-COMP models often
-    contain undefined behaviour such as concurrent access to non-volatile,
+    contain undefined behaviour, such as concurrent access to non-volatile,
     non-atomic variable which could be optimized improperly for SV-COMP. This
-    pass actually hides errors in SV-COMP benchmarks, nevertheless, it is
-    necessary as SV-COMP benchmarks assume any use of shared variable will cause
-    load from it, which is not required by C standard.
+    pass actually hides errors in SV-COMP benchmarks; nevertheless, it is
+    necessary, since SV-COMP benchmarks assume any use of shared variable will
+    cause a load from it, which is not required by the C standard.
 
 4.  \llvm optimizations are run, using \llvm `opt` with `-Oz` (optimizations for
     binary size).
 
-5.  Nondeterminism tracking (\autoref{sec:trans:opt:nondet} is used.
+5.  Nondeterminism tracking (\autoref{sec:trans:opt:nondet}) is used.
 
 6.  \lart is used to disable `malloc` nondeterministic failure as SV-COMP
     assumes that `malloc` never fails.
 
 7.  Finally, \divine is run on the program with Context-Switch-Directed
-    Reachability \cite{SRB14} algorithm and assertion violation is reported if
-    there is any. Other errors are not reported.
+    Reachability \cite{SRB14} and assertion violations are reported if
+    there are any. Other errors are not reported.
 
 With these transformations, \divine is expected to score more than 900 points
-out of 1222 total in concurrency category. A report which describes our approach
+out of 1222 total in the concurrency category. A report which describes our approach
 is to appear in TACAS proceedings \cite{SRB16svc}. The implementation of these
-transformations can be found in `lart/svmcomp/` directory.
+transformations can be found in the `lart/svmcomp/` directory.
