@@ -2035,23 +2035,24 @@ to match the name used for this ordering in the C++11/C11 standard.
 # Code Optimization in Formal Verification
 
 \divine aims at verification of real-world code written in C and C++. Both \llvm
-IR and assembly produced from such code is often heavily optimized during
-compilation to increase its speed. To verify the code as precisely as possible
-it is desirable to verify \llvm IR with all optimizations which will be used in
-the binary version of the program, and the binary should be compiled by the same
-compiler as the \llvm IR used in \divine. Ideally it would be possible to use
-the same \llvm IR for verification and to build the binary. This is, however, not
-currently possible as \divine needs to re-implement library features (namely
-`pthreads` and C++ exception handling) and this implementation might not be
-compatible with the version used on given platform. Nevertheless, \divine should
-use the optimization level requested by its user for program compilation.
+IR and assembly produced from such a code is often heavily optimized during the
+compilation to increase its speed. To verify the code as precisely as possible,
+it is desirable to verify \llvm IR with all the optimizations which will be used
+in the binary version of the program and the binary should be compiled by the
+same compiler as the \llvm IR used in \divine. Ideally, it would be possible to
+use the same \llvm IR for verification and to build the binary. This is,
+however, not currently possible as \divine needs to re-implement library
+features (namely `pthreads` and C++ exception handling) and this implementation
+might not be compatible with the implementation used on given platform.
+Nevertheless, \divine should use the optimization levels requested by its user
+for the program compilation.
 
 On the other hand, it is desirable to utilize \llvm optimizations in such a way
 that model checking can benefit from it. This, however, requires special purpose
-optimizations designed for verification, as the general purpose optimizations do
-not meet two critical requirements for verification.
+optimizations designed for the verification, as the general purpose
+optimizations do not meet two critical requirements for verification.
 
-*   **They can change satisfiability of verified property.** This is usually
+*   **They can change satisfiability of the verified property.** This is usually
     caused by the fact that compiler optimizations are not required to preserve
     behaviour of parallel programs, and that many programs written in C/C++
     contain undefined behaviour as they access non-atomic non-volatile variables
@@ -2059,14 +2060,14 @@ not meet two critical requirements for verification.
     such property-changing optimization.
 
 *   **They might increase state space size.** Not all optimizations which lead
-    to faster execution lead to faster verification as they might change
-    program behaviour in such a way that model checker generates more states. An
-    example of such transformation can be any transformation which increases the
-    number of registers in a function, which might cause states which were
-    originally considered to be the same to be distinct after such optimization.
-    More specifically, examples of such transformation are promotion of
-    variables into registers, loop unrolling, and loop rotation which can be
-    seen in \autoref{fig:trans:opt:looprot}.
+    to faster execution lead to faster verification as they might change program
+    behaviour in such a way that model checker generates more states. An example
+    of such a transformation can be any transformation which increases the
+    number of registers in a function. This might cause states which were
+    originally considered to be the same to become distinct after the
+    optimization.  More specifically, examples of such transformation are
+    promotion of variables into registers, loop unrolling, and loop rotation
+    which can be seen in \autoref{fig:trans:opt:looprot}.
 
 \begFigure[tp]
 
@@ -2083,10 +2084,10 @@ int main() {
 }
 ```
 
-This code is an example of undefined behaviour, the global non-atomic variable
-`x` is written concurrently from two threads.  For this program assertion safety
-does not hold, the assertion can be violated if the assignment `x = 2` executes
-between `x = 1` and `assert( x == 1 )`.
+This code is an example of an undefined behaviour, the global non-atomic
+variable `x` is written concurrently from two threads. For this program
+assertion safety does not hold. The assertion can be violated if the assignment
+`x = 2` executes between `x = 1` and `assert( x == 1 )`.
 
 
 ```{.llvm}
@@ -2098,9 +2099,9 @@ call void @__divine_assert(i32 %conv)
 ret void
 ```
 
-The body of `foo` emitted by Clang without any optimization is straightforward
-translation of the C++ code, it stores into global `@x`, then loads it and
-compares the loaded value to `0`. In this case \divine will report assertion
+The body of `foo` emitted by Clang without any optimization is a straightforward
+translation of the C++ code. It stores into global `@x`, then loads it and
+compares the loaded value to `0`. In this case, \divine will report assertion
 violation.
 
 ```{.llvm}
@@ -2109,11 +2110,11 @@ tail call void @__divine_assert(i32 1)
 ret void
 ```
 
-This is optimized (`-O2`) version of `foo`, `store` is still present, but the
+This is optimized (`-O2`) version of `foo`. `store` is still present, but the
 compiler assumes that the `load` which should follow it will return the save
-value as written immediately before it (this is valid assumption for non-atomic,
-non-volatile shared variable). For this reason the assertion is optimized into
-`assert( true )` and no assertion violation is possible.
+value as written immediately before it (this is a valid assumption for
+non-atomic, non-volatile shared variable). For this reason, the assertion is
+optimized into `assert( true )` and no assertion violation is possible.
 
 \begCaption
 An example of program in which optimizations change property satisfiability.
@@ -2131,6 +2132,7 @@ while ( !turn ) { }
 // rest of the code
 ```
 
+\noinline
 This program might generate following \llvm:
 
 ```{.llvm}
@@ -2143,7 +2145,8 @@ end:
 ; rest of the code
 ```
 
-With optimization this \llvm can be changed to:
+\noinline
+With optimization, this \llvm can be changed to:
 
 ```{.llvm}
 pre:
@@ -2160,6 +2163,7 @@ end:
 ; rest of the code
 ```
 
+\noinline
 Basically the loop is rotated to a loop equivalent to the following code:
 
 ```{.cpp}
@@ -2169,21 +2173,22 @@ if ( !trun ) {
 ```
 
 While this code might be faster in practice due to branch prediction, for model
-checking this is adverse change as the model checker can now distinguish the
+checking this is an adverse change as the model checker can now distinguish the
 state after one and two executions of the original loop based on the register
 values.
+
 \begCaption
-An example of optimization with adverse effect on model checking.
+An example of optimization with an adverse effect on model checking.
 \endCaption
 \label{fig:trans:opt:looprot}
 \endFigure
 
 For these reasons, we suggest some optimization techniques which would allow
 optimization of \llvm IR and not change verification outcome or increase state
-space size. On the other hand, these techniques can use specific knowledge about
-the verification environment they will be used in. Some of these techniques were
-already implemented as part of this thesis and are evaluated in
-\autoref{sec:res:opt}, some of them are proposals for future work.
+space size. On the other hand, these techniques can use a specific knowledge
+about the verification environment they will be used in. Some of these
+techniques were already implemented as part of this thesis and are evaluated in
+\autoref{sec:res:opt}, some of them are proposals for a future work.
 
 ## Constant Local Variable Elimination
 
@@ -2193,61 +2198,61 @@ Especially with optimizations disabled, compilers often create `alloca`
 instructions (which correspond to stack-allocated local variables) even for
 local variables which need not have address and perform loads and stores into
 those memory locations instead of keeping the value in registers. To eliminate
-unnecessary `alloca` instructions \llvm provides register promotion pass,
-nevertheless, this pass is not well suited for model checking as it can add
-registers into the function and in this way increase state space size. For this
-reason we introduce a pass which eliminates *constant* local variables, as these
+unnecessary `alloca` instructions, \llvm provides a register promotion pass.
+Nevertheless, this pass is not well suited for the model checking as it can add
+registers into the function and in this way increase the state space size. For this
+reason, we introduce a pass which eliminates *constant* local variables, as these
 can be eliminated without adding registers (actually, some registers can be
 removed in this case).
 
-In this case `alloca` instruction can be eliminated if the following conditions
-are met:
+With this reduction, an `alloca` instruction can be eliminated if the following
+conditions are met:
 
 *   the address of the memory is never accessed outside of the function;
 *   it is written only once;
 *   the `store` into the `alloca` dominates all `loads` from it.
 
-The first condition ensures that the `alloca` can be deleted, while the other
-two conditions ensure that the value which is loaded from it is always the same,
-and therefore can be replaced with the value which was stored into the memory
-location.
+\noindent The first condition ensures that the `alloca` can be deleted, while
+the other two conditions ensure that the value which is loaded from it is always
+the same, and therefore can be replaced with the value which was stored into the
+`alloca`.
 
 In the current implementation of this pass, each function is searched for
 `alloca` instructions which meet these criteria (ignoring uses of address in
-`llvm.dbg.declare` intrinsic[^dbg]), all uses of results of loads from these memory
-locations are replaced with the value which was originally stored into it, and
-finally the `alloca` and all its uses are eliminated from the function. Please
-note that the conditions ensure that only uses of the `alloca` are the single
-store into it, the loads which read it, and `llvm.dbg.declare` intrinsics.
+`llvm.dbg.declare` intrinsic[^dbg]), all uses of results of loads from these
+memory locations are replaced with the value which was originally stored into
+it, and finally the `alloca` and all its uses are eliminated from the function.
+Please note that the conditions ensure that the only uses of the `alloca` are
+the single store into it, the loads which read it, and `llvm.dbg.declare`
+intrinsics.
 
-[^dbg]: This intrinsic is used to bind debugging information such as variable
-name with the variable's \llvm IR representation, it does not affect behaviour of
-the program in any way.
+[^dbg]: This intrinsic is used to bind a debugging information such as variable
+name with the variable's \llvm IR representation. It does not affect the
+behaviour of the program in any way.
 
 ## Constant Global Variable Annotation
 
 \label{sec:trans:opt:global}
 
-In \divine any non-constant global variable is considered to be visible by all
+In \divine, any non-constant global variable is considered to be visible by all
 threads and is saved in each state in the state space. However, it can happen
 that this variable cannot be changed during any run of the program. If such a
-condition can be detected statically it is possible to set this variable to be
+condition can be detected statically, it is possible to set this variable to be
 constant which removes it from all states (it is stored in constants, which are
-part of the interpreter as they are constant for the entire run of the programs)
-and it also causes loads of this variable to be always considered to be
-invisible actions by $\tau+$ reduction.
+part of the interpreter state) and it also causes the loads of this variable to
+be considered to be invisible actions by $\tau+$ reduction.
 
-For a global variable to be made constant in this way it must meet the following
+For a global variable to be made constant in this way, it must meet the following
 conditions:
 
 *   it must be never written to, neither directly nor through any pointer;
 *   it must have constant initializer.
 
 While the second condition can be checked from the definition of the global
-variable, the first one cannot be exactly determined efficiently, it can be
+variable, the first one cannot be exactly efficiently determined. It can be
 approximated using pointer analysis.
 
-Currently \lart lacks working pointer analysis, so we used a simple heuristic
+Currently, \lart lacks working pointer analysis, so we used a simple heuristic
 for the initial implementation: the address of the global variable must not
 be stored into any memory location and any value derived from the address must
 not be used in instructions which can store into it (`store`, `atomicrmw`,
@@ -2263,17 +2268,17 @@ derived from the global variable's address. The implementation is available in
 it is no longer useful. This means that there can be states in the state space
 which differ only in a value of a register which does not change the execution
 of the program as it will be never used again. This situation can be eliminated
-by setting the no-longer-used registers to 0, however, this is not possible in
-pure \llvm as it is in static single assignment form.
+by setting the no-longer-used registers to 0. However, this is not possible in
+the \llvm as it is in a static single assignment form.
 
 Nevertheless, with addition of one intrinsic function into the \divine's \llvm
 interpreter, it is possible to zero registers in \divine at the place determined
 by the call to this intrinsic. Since \llvm is type safe, this intrinsic is
 actually implemented as a family of functions with `__divine_drop_register.`
 prefix, one for each type of register which needs to be zeroed. Signatures for
-these functions are generated automatically by \lart pass which perform register
-zeroing. Any call to a function with this prefix is implemented as a single
-an intrinsic which zeroes the register and sets it as uninitialized.
+these functions are generated automatically by the \lart pass which perform
+register zeroing. Any call to a function with this prefix is implemented as an
+intrinsic which zeroes the register and sets it as uninitialized.
 
 The \lart pass (which is implemented in `lart/reduce/register.cpp`) processes
 each function with the following algorithm.
@@ -2281,36 +2286,37 @@ each function with the following algorithm.
 1.  For each instruction $i$, it searches for last uses:
     *   this is either a use $u$ such that no other use of $i$ is reachable from
         $u$;
-    *   or a use $u$ which is part of a loop and all uses of $i$ reachable from
-        it are in the same loop.
+    *   or a use $u$ which is part of a loop and all the uses of $i$ reachable
+        from it are in the same loop.
 
-2.  Insertion points for `__divine_drop_register` call are determined
-    *   for uses which are not in a loop the insertion point is inserted
+2.  Insertion points for `__divine_drop_register` calls are determined:
+    *   for the uses which are not in a loop, the insertion point is set to be
         immediately after the use;
-    *   for uses which are in a loop the insertion point is at the beginning of
-        any basic block which follows the loop.
+    *   for the uses which are in a loop, the insertion point is at the
+        beginning of any basic block which follows the loop.
 
-    Strongly connected components of control flow graph of the function are used
-    to determine if instruction is in a loop and successors of a loop.
+    Strongly connected components of the control flow graph of the function are
+    used to determine if an instruction is in a loop and successors of a loop.
 
-3.  If instruction $i$ dominates an insertion point, `__divine_drop_register`
-    call for given type is inserted at this point.
+3.  If an instruction $i$ dominates an insertion point, `__divine_drop_register`
+    call for $i$ is inserted at this point.
 
 Furthermore, if the instruction in question is an `alloca`, it is treated
-specially as `alloca` cannot be zeroed until the local variable it represents is
+specially. `alloca` cannot be zeroed until the local variable it represents is
 released. A simple heuristics is used to determine if the local variable might
-be aliased, and if not it is dropped immediately before the register which
-corresponds to its `alloca` is zeroed. Otherwise the register is not zeroed.
+be aliased, and if not, it is dropped immediately before the register which
+corresponds to its `alloca` is zeroed. Otherwise the register is not zeroed and
+the `alloca` will be released automatically by \divine.
 
 ## Terminating Loop Optimization
 
 \label{sec:trans:opt:loop}
 
-In \divine a loop will generate state at least once an iteration. This is caused
-by heuristics which makes sure state generation terminates. However, if the
-loop performs no visible action and always terminates, it is possible to run it
-atomically. This way the entire loop is merged into one action, which leads to
-further reduction of state space.
+In \divine a loop will generate a state at least once an iteration. This is
+caused by the heuristics which makes sure the state generation terminates.
+However, if the loop performs no visible action and always terminates, it is
+possible to run it atomically. This way, the entire loop is merged into one
+action, which leads to further reduction of the state space size.
 
 This reduction is not implemented yet, however, to implement it, it would be
 necessary to have the following components:
@@ -2332,36 +2338,37 @@ necessary to have the following components:
 nondeterminism well. Nevertheless, data nondeterminism is often useful, for
 example to simulate input or random number generation by a variable which can
 have arbitrary value from some range. The only way to simulate such
-nondeterminism in \divine is to enumerate possibilities explicitly, using
-`__divine_choice`. This of course can lead to large state space, as it causes
-branching of the size of the argument of `__divine_choice`.
+nondeterminism in \divine is to enumerate all the possibilities explicitly,
+using `__divine_choice`. This, of course, can lead to large state space, as it
+causes branching of the size of the argument of `__divine_choice`.
 
 Nevertheless, for small domains, this handling of nondeterminism is quite
-efficient, as it does not require any symbolic data. This way, `__divine_choice`
-is used for example to simulate failure of `malloc`: `malloc` can return `NULL`
-if allocation is not possible and \divine simulates this in such a way that any
-call to `malloc` nondeterministically branches into two possibilities, either
-`malloc` succeeds and returns memory, or it fails. Similarly, weak memory model
-simulation (\autoref{sec:trans:wm}) uses nondeterministic choice to determine
-which entry of store buffer should be flushed.
+efficient, as it does not require any symbolic data representation. This way,
+`__divine_choice` is used for example to simulate failure of `malloc`: `malloc`
+can return a null pointer if the allocation is not possible and \divine
+simulates this in such a way that any call to `malloc` nondeterministically
+branches into two possibilities; either the `malloc` succeeds and returns
+memory, or it fails. Similarly, weak memory model simulation
+(\autoref{sec:trans:wm}) uses nondeterministic choice to determine which entry
+of store buffer should be flushed.
 
-For verification of real-world programs it is useful to be able to constrain
-nondeterminism which can occur in them, for example as a result of call of
-`rand` function, which returns random number from some interval, usually from
+For the verification of real-world programs it is useful to be able to constrain
+nondeterminism which can occur in them, for example as a result of a call of the
+`rand` function, which returns a random number from some interval, usually from
 $0$ to $2^{31} - 1$. Such a nondeterminism is too large to be handled
 explicitly. Nevertheless, it often occurs in patterns like `rand() % N` for some
 fixed and usually small number `N`. In these cases it is sufficient to replace
 `rand() % N` with `__divine_choice( N )` which might be tractable for
-sufficiently small `N`.
+sufficiently small values of `N`.
 
 To automate this replacement at least in some cases a \llvm pass which tracks
 nondeterministic value and constraints the nondeterministic choice to smallest
-possible interval can be created. A very simple implementation of such pass,
+possible interval can be created. A very simple implementation of such pass
 which tracks nondeterminism only inside one function and recognizes two
 patterns, cast to `bool` and modulo constant number, can be found in
 `lart/svcomp/svcomp.cpp`, class `NondetTracking`. For a more complete
-implementation a limited symbolic execution of part of the program which uses the
-nondeterministic value could be used. This is not implemented yet.
+implementation, a limited symbolic execution of part of the program which uses
+the nondeterministic value could be used. This version is not implemented yet.
 
 # Transformations for SV-COMP 2016
 
@@ -2374,10 +2381,10 @@ or use nondeterministic data heavily an therefore are not tractable by \divine.
 There are, however, many programs which can be verified by \divine, with some
 minor tweaks.
 
-In order to make it possible to verify SV-COMP's programs with \divine, they
+In order to make it possible to verify the SV-COMP programs with \divine, they
 have to be pre-processed, as they use some SV-COMP-specific functions and rely
-on certain assumptions about semantics of C which is not always met when C is
-compiled to \llvm.
+on certain assumptions about the semantics of C which is not always met when C
+is compiled into \llvm.
 
 1.  The benchmark is compiled using `divine compile`.
 
