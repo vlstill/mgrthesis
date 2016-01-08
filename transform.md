@@ -2132,7 +2132,7 @@ while ( !turn ) { }
 // rest of the code
 ```
 
-\noinline
+\noindent
 This program might generate following \llvm:
 
 ```{.llvm}
@@ -2145,7 +2145,7 @@ end:
 ; rest of the code
 ```
 
-\noinline
+\noindent
 With optimization, this \llvm can be changed to:
 
 ```{.llvm}
@@ -2163,7 +2163,7 @@ end:
 ; rest of the code
 ```
 
-\noinline
+\noindent
 Basically the loop is rotated to a loop equivalent to the following code:
 
 ```{.cpp}
