@@ -117,6 +117,8 @@ optimization, \textit{+ Indep. Load} includes independent loads optimization,
 
 # Weak Memory Models
 
+\label{sec:res:wm}
+
 We evaluated relaxed memory models on the same benchmarks as in \cite{SRB15} and
 additionally on a unit test for a concurrent hash table (`hs-2-1-0`). We used
 Context-Switch-Directed-Reachability algorithm \cite{SRB14} in all weak memory

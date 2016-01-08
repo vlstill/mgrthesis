@@ -55,8 +55,8 @@ with parallelism using \llvm as an intermediate representation. \divine aims to
 have full support of language features for C++, including, for example, exception
 handling.  Furthermore, \divine provides near complete implementation of C and
 C++ standard library, including features of newest C++14 standard and the `pthread`
-threading library. In this way, \divine can often be directly applied to
-verification of real-world code, provided it does not use inputs or
+threading library \cite{pthreads}. In this way, \divine can often be directly
+applied to verification of real-world code, provided it does not use inputs or
 platform-specific features, such as calls into the kernel of the operating
 system. \divine is able to verify wide range of properties, such as memory and
 assertion safety, absence of memory leaks, and liveness properties defined by
