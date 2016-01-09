@@ -53,10 +53,25 @@
 \usetikzlibrary{arrows,positioning}
 \usepackage{pdfpages}
 
+\usepackage{float}
+\makeatletter
+% custom float style, derived from ruled, but caption is at the bottom and
+% spaces before and after figure are larger
+\newcommand\floatc@botruled[2]{{\@fs@cfont #1} #2\par}
+\newcommand\fs@botruled{\def\@fs@cfont{\bfseries}\let\@fs@capt\floatc@botruled
+    \def\@fs@pre{\hrule height.8pt depth0pt \kern4pt}%
+    \def\@fs@post{\kern2pt\hrule height.8pt depth0pt\relax}%
+    \def\@fs@mid{\kern4pt\hrule\kern2pt}%
+\let\@fs@iftopcapt\iffalse}
+\makeatother
+\floatstyle{botruled}
+\restylefloat{figure}
+\restylefloat{table}
+\usepackage[labelfont=bf]{caption}
+
 \usepackage{multirow}
 \usepackage{microtype}
 
-\usepackage[labelfont=bf]{caption}
 \usepackage{tabularx}
 \newcolumntype{C}{>{\centering\arraybackslash}X}
 
