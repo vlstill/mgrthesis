@@ -1,7 +1,6 @@
 In this chapter, we describe internal architecture of \divine [^dvers] with the
 main focus on the implementation of \llvm verification. More details about
-\divine can be found for example in the Ph.D. thesis of Petr Ročkai
-\cite{RockaiPhD}, or in the tool paper introducing \divine 3.0 \cite{DiVinE30}.
+\divine can be found for example in \cite{RockaiPhD, DiVinE30}.
 
 [^dvers]: More precisely version 3.3 which is the latest released version at the
 time of writing of this thesis.
@@ -89,15 +88,14 @@ of C/C++ code is illustrated in \autoref{fig:divine:llvm:workflow}.
       \node[state, below = of divine] (valid) {Valid};
       \node[state, left = of valid, minimum width = 8em] (ce) {Counterexample};
 
-      \path (ltl) edge (divine)
+      \path (ltl.south) edge[out=270, in=90] (divine.north)
             (cpp) edge (clang)
             (clang) edge (llvm)
             (lib) edge [out=0, in=90, looseness = 1] (clang)
             (llvm) edge (lart)
             (lart) edge (llvm2)
             (llvm2) edge (divine)
-            (divine) edge (valid) edge (ce)
-            (ce) edge[dashed, in=270, out=180, looseness=0.4] (cpp)
+            (divine.south) edge (valid) edge[out=270, in=90] (ce.north)
             ;
     \end{tikzpicture}
 
