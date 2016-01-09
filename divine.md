@@ -1,6 +1,6 @@
 In this chapter, we describe internal architecture of \divine [^dvers] with the
 main focus on the implementation of \llvm verification. More details about
-\divine can be found for example in \cite{RockaiPhD, DiVinE30}.
+\divine can be found for example in \cite{RockaiPhD, DiVinE30, DiVinE:web}.
 
 [^dvers]: More precisely version 3.3 which is the latest released version at the
 time of writing of this thesis.
@@ -19,7 +19,7 @@ state space generators, exploration algorithms, and closed set stores.
 Currently, there are multiple implementations of each of these modules,
 providing different functionality. For state space generators, there are
 versions for different input formalisms such as \llvm, DVE \cite{Simecek2006},
-and \textsc{UppAll} timed automata \cite{UppAll}. Each of these generators
+and UPPAAL timed automata \cite{UppAll}. Each of these generators
 define an input formalism and can be used to generate a state space graph from its
 input, that is, for a given state in the state space, it yields its successors and
 is able to report state flags. State flags are used by the exploration algorithm
