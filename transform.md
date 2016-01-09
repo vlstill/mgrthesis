@@ -2034,6 +2034,8 @@ to match the name used for this ordering in the C++11/C11 standard.
 
 # Code Optimization in Formal Verification
 
+\label{sec:trans:opt}
+
 \divine aims at verification of real-world code written in C and C++. Both \llvm
 IR and assembly produced from such a code is often heavily optimized during the
 compilation to increase its speed. To verify the code as precisely as possible,

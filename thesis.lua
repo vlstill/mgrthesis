@@ -34,7 +34,11 @@ function unit( n, i, mul, suff )
         return unit( n / mul, i + 1, mul, suff )
     else
         local u = suff[ i ];
-        return nround( n, 3 ) .. "\\," .. u
+        if u ~= "" then
+            return nround( n, 3 ) .. "\\," .. u
+        else
+            return nround( n, 3 )
+        end
     end
 end
 
@@ -50,21 +54,59 @@ function speedup( x, y )
     return "$" .. nround( x / y, 3 ) .. "\\times$"
 end
 
+function minimum( arr )
+    local min = arr[ 1 ]
+    for i, v in ipairs( arr ) do
+        if v < min then
+            min = v
+        end
+    end
+    return min
+end
+
 function wmoptline( name, array, mod )
     local str = "\\texttt{" .. name .. "}"
     local base = array[1]
+    local best = minimum( array )
+
     if mod == nil then
         mod = ""
     end
     for i, v in ipairs( array ) do
         str = str .. " & "
-        if mod ~= "" then
-            str = str .. "\\" .. mod
-        end
+
+        if mod ~= "" then str = str .. "\\text" .. mod .. "{" end
+        if v == best then str = str .. "\\textbf{" end
         str = str .. " " .. si( v )
+        if v == best then str = str .. "}" end
+        if mod ~= "" then str = str .. "}" end
+
         if i ~= 1 then
             str = str .. " & " .. speedup( base, v )
         end
     end
+    return str
+end
+
+function wmtauline( name, array, mod, sp )
+    local str = "\\texttt{" .. name .. "}"
+    local base = array[1]
+    local best = minimum( array )
+
+    if mod == nil then
+        mod = ""
+    end
+
+    for i, v in ipairs( array ) do
+        str = str .. " & "
+        if mod ~= "" then str = str .. "\\text" .. mod .. "{" end
+        if v == best then str = str .. "\\textbf{" end
+
+        str = str .. " " .. si( v )
+
+        if v == best then str = str .. "}" end
+        if mod ~= "" then str = str .. "}" end
+    end
+    str = str .. " & " .. speedup( base, best )
     return str
 end
