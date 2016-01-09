@@ -394,6 +394,7 @@ while.end:
   ; ...
 ```
 
+\antispaceatend
 \begCaption
 An example of a use of `fence` instruction. The `release` fence (line 6 in C++,
 4 in \llvm) synchronizes with the `acquire` fence (line 12 in C++, 19 in \llvm)

@@ -62,9 +62,9 @@
 % - bottom rule is missing
 \newcommand\floatc@botruled[2]{{\@fs@cfont #1} #2\par}
 \newcommand\fs@botruled{\def\@fs@cfont{\bfseries}\let\@fs@capt\floatc@botruled
-    \def\@fs@pre{\hrule\kern4pt}%
+    \def\@fs@pre{\hrule\kern0.5\abovecaptionskip}%
     \def\@fs@post{}%
-    \def\@fs@mid{\kern4pt\hrule\kern2pt}%
+    \def\@fs@mid{\kern0.5\abovecaptionskip\hrule\kern0.5\abovecaptionskip}%
 \let\@fs@iftopcapt\iffalse}
 \makeatother
 \floatstyle{botruled}
@@ -156,6 +156,8 @@
 \newcommand{\dmem}[1]{\mem{#1 * 1024}}
 \newcommand{\si}[1]{\directlua{tex.sprint(si(#1))}}
 \newcommand{\speedup}[2]{\directlua{tex.sprint(speedup(#1, #2))}}
+
+\newcommand{\antispaceatend}{\vspace*{-\topsep}}
 
 \begin{document}
 

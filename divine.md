@@ -437,6 +437,7 @@ void critical2() {
 }
 ```
 
+\antispaceatend
 \begCaption
 A fragment of C program which uses \ltl property `exclusion` to verify that
 functions `critical1` and `critical2` cannot be executed in parallel.

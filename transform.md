@@ -439,6 +439,7 @@ if.end:  ; preds = %if.then, %entry
   ret i32 0
 ```
 
+\antispaceatend
 \begCaption
 An example of \llvm code in which a local variable is allocated in only one
 branch and therefore does not dominate the function exit. While Clang usually
@@ -475,6 +476,7 @@ if.end:  ; preds = %if.then, %entry
   ret i32 0
 ```
 
+\antispaceatend
 \begCaption
 Transformation of the last basic block from \autoref{fig:trans:b:lvc:phi} to
 allow cleanup of `%y`.
@@ -534,6 +536,7 @@ int main() {
 }
 ```
 
+\antispaceatend
 \begCaption
 An example of composition problem with the original version of \divine's atomic
 sections.  The atomic section begins on line 10 and is inherited to
@@ -568,6 +571,7 @@ section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
 example.
 
 \begFigure[tp]
+
 ```{.cpp}
 #include <divine/interrupt.h>
 
@@ -590,6 +594,7 @@ int main() {
 }
 ```
 
+\antispaceatend
 \caption{An example use of the C++ interface for the new version of atomic sections in
 \divine.}
 \label{fig:ex:atomic:cpp}
@@ -620,6 +625,7 @@ int atomicInc( int *ptr, int val ) __lart_atomic_function {
 }
 ```
 
+\antispaceatend
 \begCaption
 An example of a use of the annotation interface for atomic functions in \divine.
 The function `atomicInc` is aways executed atomically and it is safe execute it
@@ -767,6 +773,7 @@ code. Dashed lines represent where the given value is read from/stored to.
 \end{tikzpicture}
 \end{center}
 
+\antispaceatend
 \caption{An illustration of a behaviour which is not possible with sequential
 consistency. It is, however, possible with total store order or any more relaxed
 memory model.}
@@ -1081,6 +1088,7 @@ shown).
     with the address of the stored memory location, the stored value, its
     bitwidth, and the memory ordering used for the store.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with store buffers, part I.}
 \label{fig:trans:wm:simple1}
 \endFigure
@@ -1189,6 +1197,7 @@ shown).
     `@x`, in this case it would be removed from the store buffer as it is the
     oldest entry, and therefore no explicit synchronization is necessary.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with store buffers, part II.}
 \label{fig:trans:wm:simple2}
 \endFigure
@@ -1283,6 +1292,7 @@ shown).
     the store of `@a` are visible after the load of `@a` returns the stored
     value.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with store buffers, part III.}
 \label{fig:trans:wm:simple3}
 \endFigure
@@ -1364,9 +1374,9 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 \end{tikzpicture}
 
 1.  After all the instructions of thread 0 executed the store buffer contains
-    two store entries and one fence entry which corresponds to the fence on line
-    6.
+    two store entries and one fence entry which corresponds to the fence on line 6.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with fences, part I.}
 \label{fig:trans:wm:fence1}
 \endFigure
@@ -1489,6 +1499,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
     store entries which precede the store entry for `@a` and to the entry for
     `@a` if it was *release* or stronger.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with fences, part II.}
 \label{fig:trans:wm:fence2}
 \endFigure
@@ -1538,6 +1549,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
     flushed and it would be first entry in the store buffer after the fence is
     evicted, it is also evicted.  The load of `@x` will always return `42`.
 
+\antispaceatend
 \caption{Example of the weak memory model simulation with fences, part III.}
 \label{fig:trans:wm:fence3}
 \endFigure
@@ -1631,6 +1643,7 @@ selected using the `select` instruction):
 %opval = select %1 %atomicrmw.orig %value
 ```
 
+\antispaceatend
 \begCaption
 An example of the transformation of `atomicrmw` instruction into an equivalent
 sequence of instructions which is executed atomically using
@@ -1706,6 +1719,7 @@ cmpxchg.continue:
 ; some instructions after
 ```
 
+\antispaceatend
 \begCaption
 An example of the transformation of the `cmpxchg` instruction into an equivalent
 sequence of instructions which is executed atomically using
