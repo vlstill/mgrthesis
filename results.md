@@ -372,7 +372,7 @@ visible in the table.
 
 \begin{table}[tp]
 
-\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{1em}}}
+\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{0.5em}}}
 \begin{tabularx}{\textwidth}{|l|CCCCC|} \hline
 Name & \rname{fifo} & \rname{fifo-bug} & \rname{collision} & \rname{pt-rwlock} & \rname{elevator2} \\  \hline
 no \lart              & 791 & \it 2876 & 1.96\,M &     4.48\,M & \si{17720078} \\  \hline
@@ -383,16 +383,33 @@ register zero         & 791 & \it 2876 & 1.96\,M &     4.48\,M & \si{17720078} \
 CA + CG               & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \textbf{\si{11482370}} \\
 CA + CG + AZ          & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \textbf{\si{11482370}} \\
 CA + CG + RZ          & 791 & \it 2876 & 1.96\,M & \bf 4.47\,M & \textbf{\si{11482370}} \\ \hline
-Reduction             & $1\times$  &    $1\times$    &        $1\times$ &    $1.001\times$ & \speedup{17720078}{11482370} \\ \hline 
+Reduction             & $1\times$  &    $1\times$    &        $1\times$ &    $1\times$ & \speedup{17720078}{11482370} \\ \hline 
 % RWL: NO=4476710, R=4472037
 \end{tabularx}
-\caption{Effects of \lart optimizations on state space size.}
+
+\par\medskip\par
+
+\begin{tabularx}{\textwidth}{|l|CCCC|} \hline
+Name & \rname{lead-dkr} & \rname{hs-2-1-0} & \rname{hs-2-1-1} & \rname{hs-2-2-2} \\ \hline
+no \lart              & \si{58148} & \si{890973} & \si{1341117} & \si{2328550} \\
+const \texttt{alloca} & \textbf{\si{43376}} & \textbf{\si{874778}} & \textbf{\si{1317496}} & \textbf{\si{2292383}} \\
+const global          & \si{58148} & \si{890973} & \si{1341117} & \si{2328550} \\
+\texttt{alloca} zero  & \si{58148} & \si{903908} & \si{1356872} & \si{2348987} \\
+register zero         & \si{58148} & \si{890973} & \si{1341117} & \si{2328550} \\
+CA + CG               & \textbf{\si{43376}} & \textbf{\si{874778}} & \textbf{\si{1317496}} & \textbf{\si{2292383}} \\
+CA + CG + AZ          & \textbf{\si{43376}} & \si{887715} & \si{1333253} & \si{2312822} \\
+CA + CG + RZ          & \textbf{\si{43376}} & \textbf{\si{874778}} & \textbf{\si{1317496}} & \textbf{\si{2292383}} \\ \hline
+Reduction             & \speedup{58148}{43376} & \speedup{890973}{874778} & \speedup{1341117}{1317496} & \speedup{2328550}{2292383} \\ \hline 
+\end{tabularx}
+
+\caption{Effects of \lart optimizations on state space size. \textit{Reduction}
+shows the best achieved reduction.}
 \label{tab:res:opt:st}
 \end{table}
 
 \begin{table}[tp]
 
-\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{1em}}}
+\newcommand{\rname}[1]{\rotatebox{90}{\texttt{#1}\hspace*{0.5em}}}
 \begin{tabularx}{\textwidth}{|l|CCCCC|} \hline
 Name & \rname{fifo} & \rname{fifo-bug} & \rname{collision} & \rname{pt-rwlock} & \rname{elevator2} \\  \hline
 no \lart              & \dmem{388724} & \it \dmem{388956} & \textbf{\dmem{487320}} & \dmem{1065352} & \dmem{1296532} \\  \hline
@@ -405,7 +422,24 @@ CA + CG + AZ          & \dmem{339172} & \it \dmem{339172} & \dmem{487920} & \tex
 CA + CG + RZ          & \dmem{342588} & \it \dmem{342588} & \dmem{488264} & \dmem{1035964} & \dmem{1324748} \\ \hline
 Reduction             & \speedup{388724}{338960} & \speedup{388956}{339152} & \speedup{487320}{487320} & \speedup{1065352}{1032924} & \speedup{1296532}{1141484} \\ \hline 
 \end{tabularx}
-\caption{Effects of \lart optimizations on memory required for verification.}
+
+\par\medskip\par
+
+\begin{tabularx}{\textwidth}{|l|CCCC|} \hline
+Name & \rname{lead-dkr} & \rname{hs-2-1-0} & \rname{hs-2-1-1} & \rname{hs-2-2-2} \\ \hline
+no \lart              & \dmem{659780} & \dmem{1200264} & \dmem{1207412} & \dmem{1266776} \\
+const \texttt{alloca} & \dmem{353888} &  \dmem{572668} &  \textbf{\dmem{843024}} & \dmem{904460} \\
+const global          & \dmem{394508} &  \dmem{937504} &  \dmem{945648} & \dmem{1009160} \\
+\texttt{alloca} zero  & \dmem{407704} &  \dmem{970884} &  \dmem{992340} & \dmem{1070452} \\
+register zero         & \dmem{424424} &  \dmem{935436} &  \dmem{946692} & \dmem{1006572}  \\
+CA + CG               & \dmem{345060} &  \textbf{\dmem{559892}} &  \dmem{845604} &  \textbf{\dmem{873252}} \\
+CA + CG + AZ          & \textbf{\dmem{342136}} &  \dmem{561504} &  \dmem{851300} &  \dmem{873828} \\
+CA + CG + RZ          & \dmem{363988} &  \dmem{560404} &  \dmem{847116} &  \dmem{873736} \\ \hline
+Reduction             & \speedup{659780}{342136} & \speedup{1200264}{559892} & \speedup{1200264}{847116} & \speedup{1266776}{873736} \\ \hline 
+\end{tabularx}
+
+\caption{Effects of \lart optimizations on memory required for verification.
+\textit{Reduction} shows the best achieved reduction.}
 \label{tab:res:opt:mem}
 \end{table}
 
