@@ -24,7 +24,8 @@ In the case of state space reductions, we proposed the use of \llvm
 optimizations which do not change the behaviour of parallel programs and do not
 increase state space size. We proposed and implemented a few such optimizations
 and evaluated them. We showed that some of these transformations, namely lifting
-of local variables into registers, can significantly reduce state space size.
+of local variables into registers, can reduce state space size and memory
+requirements of \divine.
 
 While working on this thesis, we also uncovered a bug in the implementation of
 \divine's $\tau+$ state space reductions and found cases in which these

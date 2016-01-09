@@ -1,18 +1,19 @@
 
 In this chapter we will evaluate the transformations proposed in
-\autoref{chap:trans}. All measurements were done on Linux on X86_64 machines
+\autoref{chap:trans}. All measurements were done on Linux on `x86_64` machines
 with enough memory to run verification of the program in question. All numbers
-are taken from \divine's report (`--report` option to `verify` command). Number
-of states is `States-Visited` from the report, which is the number of unique
-states in the state space of the program; memory usage is `Memory-Used` from the
-report, which is peak of total memory used during verification. All measurements
-were performed with lossless tree compression enabled (`--compression`) and,
-unless explicitly stated otherwise, default setting of $\tau+$ reduction (which
-includes changes described in \autoref{sec:trans:tauextend}).
+are taken from \divine's report (`--report` was passed to the `verify` command).
+Number of states is `States-Visited` from the report, which is the number of
+unique states in the state space of the program; memory usage is `Memory-Used`
+from the report, which is the peak of the total memory used during the
+verification. All measurements were performed with the lossless tree compression
+enabled (`--compression`) \cite{RSB15} and, unless explicitly stated otherwise,
+the default setting of $\tau+$ reduction (which includes the changes described
+in \autoref{sec:trans:tauextend}).
 
-Please note that the results for cases when property does not hold depend on the
-timing and number of processors used during the evaluation. To make these
-results distinguishable they are set in cursive font. Programs used in the
+Please note that the results in cases when the property does not hold depends
+on the timing and number of processors used for the evaluation. To make these
+results distinguishable, they are set in italics. Programs used in the
 evaluation are described in \autoref{tab:res:models}.
 
 \begin{table}
@@ -68,14 +69,16 @@ BEEM database \cite{beem}. It is a simulation of elevator planning. \\
 original $\tau+$ reductions and with the extensions described in
 \autoref{sec:trans:tauextend}. It also includes state space sizes in \divine
 3.3, which is the version before any modification described in this thesis.
-While both \divine 3.3 and the new version with original reduction implement the
-same reduction strategy the numbers can differ because of bugs which were
+While both \divine 3.3 and the new version with the original reduction implement
+the same reduction strategy the numbers can differ because of bugs which were
 fixed since \divine 3.3. The first bug is that \divine 3.3 never considered
 `memcpy` to be visible operation, which could cause some runs to be missed; with
 this bug fixed, the state space size can grow. The second bug is that if a
-visible instruction is at the beginning of a basic block, \divine 3.3 emitted
-a state immediately after this instruction; fixing this bug could cause state
-space size to decrease. \TODO{isPrivate cache}
+visible instruction is at the beginning of a basic block, \divine 3.3 emitted a
+state immediately after this instruction; fixing this bug could cause state
+space size to decrease. Finally, there was a bug in the calculation of
+visibility of a memory location; this information was improperly cached even
+over operations which could change the value.
 
 We can see in the table that in all but one case, the extended $\tau+$ reduction
 performs better then \divine 3.3 and in all cases it performs better than the
@@ -132,14 +135,14 @@ simulation and compares it to the state space size of the original program. We
 can see that the size increase varies largely, but the increase is quite large,
 anywhere from $7\times$ to $282\times$ increase for a store buffer with only one
 slot. We can also see that the difference between total store order and more
-relaxed memory models is not as significant as store buffer size increase, which
-suggests there is still room for optimizations for TSO simulation.  Benchmark
-`hs-2-1-0` shows that weak memory simulation is not yet easily applicable to
-more complex real-world code; in this case the verification required
-\dmem{32585028} of memory and almost half a day of runtime on 48 cores, while
-larger versions of this model did not fit into a $100\,\text{GB}$ memory limit.
-Nevertheless, for smaller real-world tests, such as `fifo`, weak memory model
-simulation can be used even on a common laptop.
+relaxed memory models is not as significant as the store buffer size increase,
+which suggests there is still a room for optimization of the TSO simulation.
+Benchmark `hs-2-1-0` shows that the weak memory model simulation is not yet
+easily applicable to more complex real-world code; in this case the verification
+required \dmem{32585028} of memory and almost half a day of runtime on 48 cores,
+while larger versions of this model did not fit into a $100\,\text{GB}$ memory
+limit.  Nevertheless, for smaller real-world tests, such as `fifo`, the weak
+memory model simulation can be used even on a common laptop.
 
 \begin{table}[tp]
 \begin{tabularx}{\textwidth}{|l|C|CCC|CCC|} \hline
@@ -212,22 +215,23 @@ variables which do not escape scope of the function.}
 The same optimizations were evaluated in the final version of the
 transformation, these results can be seen in \autoref{tab:res:wm:opt}. Please
 note that while the original transformation bypassed store buffers for
-thread-private stores, the version proposed in this work does not as this
+thread-private stores, the version proposed in this work does not, as this
 optimization is not correct for the \llvm memory model. Nevertheless, the new
 version performs an order of magnitude better in all cases, both thanks to
 enhanced state space reductions and a more efficient implementation.[^efimpl]
 
 [^efimpl]: Namely, the flusher thread is now implemented in such a way that is
-is guaranteed that if it contains a single entry and this entry is flushed, the
-resulting state of the flusher thread will be the same as the state of the
-flusher thread before the first entry is inserted into the store buffer.
+is guaranteed that if the store buffer associated with it contains a single
+entry and this entry is flushed, the resulting state of the flusher thread will
+be the same as the state of the flusher thread before the first entry is
+inserted into the store buffer.
 
 We can see that the effect of the optimizations of the store buffer
 implementation varies significantly, but overall the improvement is around three
 times reduction, with peak for `fifo-at` which exhibits up to several hundred
-times reduction. This suggests that these reductions have stronger effects on
+times reduction. This suggests that these reductions can have stronger effects on
 bigger programs. However, due to time and resource constraints, we were not able
-to verify this hypothesis with more larger programs.
+to verify this hypothesis with more large programs.
 
 \begin{table}
 \newcommand{\tline}[3]{\directlua{tex.sprint( wmoptline( "\luatexluaescapestring{#1}", { #2 }, "\luatexluaescapestring{#3}" ) )}}
@@ -271,8 +275,11 @@ Name & No opt. & \multicolumn{2}{c|}{+ Locals} & \multicolumn{2}{c|}{+ Load Priv
 \end{tabularx}
 
 \caption{Effects of private load optimization and local private variable
-optimization on the \llvm memory model simulation (the last row includes both
-optimizations).}
+optimization on the \llvm memory model simulation. The \textit{No opt.} column
+includes none of the optimizations from \autoref{sec:trans:wm:tau}, \textit{+
+Locals} does not instrument stores into local variables which do not escape the
+scope of the function, and \textit{+ Load Private} also bypasses store buffer
+for loads from memory which is considered thread-private by \divine.}
 \label{tab:res:wm:opt}
 \end{table}
 
@@ -337,8 +344,8 @@ simulation.}
 
 \label{sec:res:opt}
 
-We evaluated transformations intended for state space reduction presented in
-\autoref{sec:trans:opt}, namely constant local variable elimination
+We also evaluated transformations intended for state space reduction presented in
+\autoref{sec:trans:opt}. Namely, constant local variable elimination
 (\autoref{sec:trans:opt:local}, const `alloca` in tables, the `paropt` pass in
 \lart), constant global variable annotation (\autoref{sec:trans:opt:global},
 cost global in tables, the `globals` pass in \lart), register zeroing
@@ -348,20 +355,20 @@ local variables (`alloca` zero in tables, the `alloca` pass in \lart). We also
 evaluated combinations of these optimizations. Please note that order of the
 combination of these passes matter, constant local variable elimination must
 precede register (or local variable) zeroing. Constant global variable
-annotation does not interfere with any of the other reduction.
+annotation does not interfere with any of the other reductions.
 
 In \autoref{tab:res:opt:st} we can see the effect of these optimizations on the
-state space size. All the optimizations but constant local variable elimination
-have no visible effect on state space size. The effect of constant local
-variable elimination is likely due to elimination of some registers which could
-have been used to distinguish otherwise equivalent states.
+state space size. The only optimization with visible effect on state space size
+is constant local variable elimination. The effect of constant local variable
+elimination not large and it is likely due to elimination of some registers
+which could have been used to distinguish otherwise equivalent states.
 
 In \autoref{tab:res:opt:mem} we can see the effect of the same optimizations on
 memory required for verification with lossless compression of the state space.
 While these values are subject to some variations caused by the used compression
 technique,[^tc] we can see that memory-wise the reductions have bigger effect.
-Namely, we can see that constant global variable annotation has an effect on
-state space size.
+Namely, we can see that constant global variable annotation has a positive
+effect on memory requirements.
 
 [^tc]: We use tree compression \cite{RSB15}. The efficiency of this reduction
 technique depends on the layout and the size of the state and on the pattens of
@@ -443,7 +450,7 @@ Reduction             & \speedup{659780}{342136} & \speedup{1200264}{559892} & \
 \label{tab:res:opt:mem}
 \end{table}
 
-Finally, in \autoref{tab:res:wm:lopt}, we can see the effect of two most
+Finally, in \autoref{tab:res:wm:lopt}, we can see the effect of the two most
 significant \lart optimizations, constant local variable elimination and
 constant global variable annotation, on programs with the \llvm memory model
 simulation. We can see that these optimizations reduced state space size up to
