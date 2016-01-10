@@ -1,7 +1,6 @@
 ALL=$(wildcard *.md)
 
 all : thesis.pdf archive_README.pdf
-	make -C draft
 
 thesis.pdf : thesis.tex $(ALL:.md=.tex) thesis.bbl thesis.lua
 	./latexwrap $<
