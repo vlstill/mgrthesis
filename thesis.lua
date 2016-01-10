@@ -72,17 +72,25 @@ function wmoptline( name, array, mod )
     if mod == nil then
         mod = ""
     end
+    if mod ~= "" then
+        str = str .. "\\dg"
+    end
+
     for i, v in ipairs( array ) do
         str = str .. " & "
 
-        if mod ~= "" then str = str .. "\\text" .. mod .. "{" end
-        if v == best then str = str .. "\\textbf{" end
-        str = str .. " " .. si( v )
-        if v == best then str = str .. "}" end
-        if mod ~= "" then str = str .. "}" end
+        if v ~= 0 then
+            if v == best then str = str .. "\\textbf{" end
+                str = str .. " " .. si( v )
+            if v == best then str = str .. "}" end
+        else
+            str = str .. "--"
+        end
 
-        if i ~= 1 then
+        if i ~= 1 and v ~= 0 and base ~= 0 then
             str = str .. " & " .. speedup( base, v )
+        elseif i ~= 1 then
+            str = str .. " & -- "
         end
     end
     return str
@@ -96,16 +104,17 @@ function wmtauline( name, array, mod, sp )
     if mod == nil then
         mod = ""
     end
+    if mod ~= "" then
+        str = str .. "\\dg"
+    end
 
     for i, v in ipairs( array ) do
         str = str .. " & "
-        if mod ~= "" then str = str .. "\\text" .. mod .. "{" end
         if v == best then str = str .. "\\textbf{" end
 
         str = str .. " " .. si( v )
 
         if v == best then str = str .. "}" end
-        if mod ~= "" then str = str .. "}" end
     end
     str = str .. " & " .. speedup( base, best )
     return str
