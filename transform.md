@@ -27,7 +27,7 @@ void __divine_assume( int value );
 
 We extended \divine with a new intrinsic function which implements the
 well-known assume statement. If `__divine_assume` is executed with a zero
-`value` it, stops the interpreter and causes it to ignore the current state.
+`value`, it stops the interpreter and causes it to ignore the current state.
 `__divine_assume` is useful for implementation of synchronization primitives,
 for example in weak memory model simulation (see \autoref{sec:trans:wm}). This
 function should be used primarily by \divine developers; it combines well with
@@ -40,19 +40,19 @@ atomic masks to create conditional transitions in the state space.
 When evaluating which transformations are useful for state space reductions, we
 identified several cases in which a runtime solution by extension of the $\tau+$
 reduction was more efficient. For this reason, the existing reduction technique
-was improved, and these improvements are implemented in the version of \divine
+was improved and these improvements are implemented in the version of \divine
 submitted with this thesis. Please refer to \autoref{sec:divine:tau} for details
 about $\tau+$ reduction. The evaluation of the impact of the proposed changes to
 $\tau+$ reduction can be found in \autoref{sec:res:tau}.
 
 ### Control Flow Cycle Detection
 
-First we improved upon the overly pessimistic control flow cycle detection
-heuristic. This detection is used to make sure successor generation terminates
+First, we improved upon the overly pessimistic control flow cycle detection
+heuristic. This detection is used to make sure that successor generation terminates
 and it is based on detection of repeating program counter values. However, the
 set of encountered program counter values was originally reset only at the
 beginning of state generation. For this reason, it was not possible to execute
-one function more that once on one edge in the state space as program counter of
+one function more that once on one edge in the state space as the program counter of
 this function was already in the set of seen program counters on the second
 invocation. Therefore, a new state was generated before the function could be
 executed for a second time, which resulted in unnecessary states.
@@ -78,7 +78,7 @@ can extend $\tau+$ reduction in such a way that load from $a$ and load from $b$
 can be performed without an intermediate state (that is, on a single edge in
 the state space). We will now show correctness of this proposition.
 
-Suppose thread $t1$ performs load of $a$ and then load of $b$ (and there are no
+Suppose thread $t1$ performs a load of $a$ and then a load of $b$ (and there are no
 actions which would be considered observable by $\tau+$ in-between).
 
 *   If any other thread performs a load of $a$ or $b$, this clearly does not
@@ -87,9 +87,9 @@ actions which would be considered observable by $\tau+$ in-between).
     an observable action and it can happen either
 
     a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$; in
-        these cases the proposed change has no effect;
+        these cases, the proposed change has no effect;
     b)  after the load of $a$, but before the load of $b$ by $t1$; this case is
-        not possible with the extended reduction, but equivalent result can be
+        not possible with the extended reduction, but an equivalent result can be
         obtained if $a$ is written after the load of $b$, as this load is
         independent and therefore its result does not depend on the value of
         $a$.
@@ -98,9 +98,9 @@ actions which would be considered observable by $\tau+$ in-between).
     action and it can happen either
 
     a)  before the load of $a$ by $t1$ or after the load of $b$ by $t1$; in
-        these cases the proposed change has no effect;
+        these cases, the proposed change has no effect;
     b)  after the load of $a$, but before the load of $b$ by $t1$; again, this
-        case is not possible with the extended reduction but an equivalent
+        case is not possible with the extended reduction, but an equivalent
         result can be obtained if $b$ is written before the load of $a$ (it does
         not change its result as $a \neq b$).
 
@@ -394,11 +394,11 @@ function `atExits` is available in the same header file.
 
 \label{sec:trans:b:lvc}
 
-A special case of a cleanup code ran before a function exits is local variable
-cleanup, a cleanup code which needs to access local variables (results of
-`alloca` instruction). One of transformations which requires this kind of
+A special case of cleanup code ran before a function exits is local variable
+cleanup, cleanup code which needs to access local variables (results of
+`alloca` instructions). One of the transformations which requires this kind of
 cleanup  is the transformation to enable weak memory model verification
-(\autoref{sec:trans:wm:cleanup}), another case can arise from compiled-in abstractions
+(\autoref{sec:trans:wm:cleanup}), while another case can arise from compiled-in abstractions
 proposed in \cite{RockaiPhD}. Variable cleanups are essentially akin to
 C++ destructors, in a sense that they get executed at the end of the scope of the
 variable, no matter how this happens (with the possible exception of thread
@@ -406,17 +406,17 @@ termination).
 
 The local variable cleanup builds on top of the function cleanups described in
 \autoref{sec:trans:b:vex}. Unlike the previous case, it is not necessary to
-transform all calls which can throw an exception, it is sufficient to transform
-calls which can happen after some local variable declaration (that is a value of
+transform all calls which can throw an exception; it is sufficient to transform
+calls which can happen after some local variable declaration (that is, a value of
 an `alloca` instruction can reach a `call` or an `invoke` instruction). After
-this transformation a cleanup code is added before every exit from the function.
+this transformation, cleanup code is added before every exit from the function.
 However, in order for the cleanup code to work, it needs to be able to access
-all local variables which can be defined before the associated function exit
+all local variables which can be defined before the associated function exits
 (results of all `alloca` instructions from which this exit can be reached). This
 might not be always be the case in the original program, see
 \autoref{fig:trans:b:lvc:phi} for an example.  In this example, `%y` is defined
-in `if.then` basic block and it needs to be cleared just before the `return`
-instruction at the end of `if.end` basic block, and the definition of `%y` does
+in the `if.then` basic block and it needs to be cleared just before the `return`
+instruction at the end of the `if.end` basic block and the definition of `%y` does
 not dominate the cleaning point.
 
 \begFigure[tbp]
@@ -454,8 +454,8 @@ The cleanup cannot be, in general, inserted after the last use of a local
 variable as the variable's address can escape the scope of the function and even
 the thread in which it was created and, therefore, it is not decidable when its
 scope ends.  Nevertheless, it is safe to insert the cleanup just before the
-function exits as the variable will cease to exists when the function exits,
-that is immediately after the cleanup.
+function exits as the variable will cease to exist when the function exits,
+that is, immediately after the cleanup.
 
 To make all local variables which can reach an exit point of a function
 accessible at this exit point, we will first insert $\varphi$-nodes in such a
@@ -484,20 +484,20 @@ allow cleanup of `%y`.
 \label{fig:trans:b:lvc:phi:post}
 \endFigure
 
-While this transformation changes the set of runs of a program all the runs in
-the original program have equivalent (from the point of safety and \ltl
-properties supported by \divine) runs transformed programs. The only difference
+While this transformation changes the set of runs of a program, all the runs in
+the original program have equivalent (from the point of view of safety and \ltl
+properties supported by \divine) runs in the transformed program. The only difference
 is that there can be some intermediate states (which correspond to the cleanup)
 in the transformed program's runs. This is, however, not distinguishable in
 \divine unless the cleanup code signals a problem or sets an atomic proposition.
 
 ### Implementation
 
-To calculate which `alloca` instructions can reach a function exit a version of
+To calculate which `alloca` instructions can reach a function exit, a version of
 the standard reaching definitions analysis \cite{compilers} is used. Using this analysis, we
 compute which `alloca` instruction values reach the end of each basic block of
 the function and for every such value which does not dominate the end of the
-basic block a $\varphi$-node is added. For each basic block the algorithm also
+basic block, a $\varphi$-node is added. For each basic block, the algorithm also
 keeps track of the value which represents a particular `alloca` instruction in
 this basic block (it can be either the `alloca` itself, or a `phi` instruction).
 These values are passed to the cleanup code. The transformation is done by the
@@ -538,8 +538,8 @@ int main() {
 
 \antispaceatend
 \begCaption
-An example of composition problem with the original version of \divine's atomic
-sections.  The atomic section begins on line 10 and is inherited to
+An example of a composition problem with the original version of \divine's atomic
+sections.  The atomic section begins on line 10 and is inherited by
 `doSomething`. The atomic section ends by the unmask call at line 4 and the rest
 of `doSomething` and `foo` are not executed atomically. The atomic section is
 then re-entered when `doSomething` returns.
@@ -547,25 +547,25 @@ then re-entered when `doSomething` returns.
 \label{fig:ex:atomic:bad}
 \endFigure
 
-To alleviate the aforementioned problems we reimplemented atomic sections in
+To alleviate the aforementioned problems, we reimplemented atomic sections in
 \divine. The new design uses only one *mask flag* to indicate that the current
 thread of execution is in an atomic section; this flag is internal to the
 interpreter and need not be saved in the state (indeed, it would be always set
 to false in the state emitted by the generator, because the state can never be
 emitted in the middle of an atomic section). Furthermore, we modified
 `__divine_interrupt_mask` to return an `int` value corresponding to the value of
-mask flag before it was set by this call.
+*mask flag* before it was set by this call.
 
-To make the new atomic sections easier to use we provide higher level interfaces
-for atomic sections by the means of a C++ library and annotations. The C++
+To make the new atomic sections easier to use, we provide higher level interfaces
+for atomic sections in the form of a C++ library and annotations. The C++
 interface is intended to be used primarily by developers of the language support
 and libraries for \divine, while the annotations are designed to be used by
 users of \divine.
 
-The C++ interface is RAII-based,[^raii] it works similarly to C++11
+The C++ interface is RAII-based,[^raii] and works similarly to C++11
 `unique_lock` with recursive mutexes. An atomic section begins by construction
-of an object of type `divine::InterruptMask` and it is left either by a call of
-`release` method on this object or by the destructor of the object. When atomic
+of an object of the type `divine::InterruptMask` and it is left either by a call to
+the `release` method of this object or by the destructor of the object. When atomic
 sections are nested, only the `release` on the object which started the atomic
 section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
 example.
@@ -611,7 +611,7 @@ marked atomic by adding `__lart_atomic_function` to the function header, see
 \autoref{fig:ex:atomic:lart} for an example. While this is a safer way to use
 atomic sections than explicitly using `__divine_interrupt_mask`, it is still
 necessary that the atomic function always terminates (e.g. does not contain
-infinite cycle).
+an infinite cycle).
 
 \begFigure[tp]
 
@@ -627,8 +627,8 @@ int atomicInc( int *ptr, int val ) __lart_atomic_function {
 
 \antispaceatend
 \begCaption
-An example of a use of the annotation interface for atomic functions in \divine.
-The function `atomicInc` is aways executed atomically and it is safe execute it
+An example of using the annotation interface for atomic functions in \divine.
+The function `atomicInc` is aways executed atomically and it is safe to execute it
 inside another atomic section.
 \endCaption
 \label{fig:ex:atomic:lart}
@@ -636,7 +636,7 @@ inside another atomic section.
 
 ### Implementation of Annotation Interface
 
-Atomic sections using annotations are implemented in two phases. First the
+Atomic sections using annotations are implemented in two phases. First, the
 function is annotated with `__lart_atomic_function` which is a macro which
 expands to GCC/Clang attributes `annotate("lart.interrupt.masked")` and
 `noinline`; the first attribute is used so that the annotated function can be
@@ -649,7 +649,7 @@ functions. This pass is implemented in `lart/reduction/interrupt.cpp` by class
 `__divine_interrupt_mask` at the beginning of the function, and a call to
 `__divine_interrupt_unmask` before any exit point of the function (using the
 cleanup transformation introduced in \autoref{sec:trans:b:vex}). The unmask call
-is conditional, it is only called if the mask call returned 0 (that is, the
+is conditional: it is only called if the mask call returned 0 (that is, the
 current atomic section begun by this call).
 
 This \lart pass was integrated into the program build with the `divine compile`
@@ -661,11 +661,11 @@ sections work.
 
 \label{sec:trans:wm}
 
-In \cite{SRB15} it was proposed to add a weak memory model simulation using
-\llvm transformation. In this section we will present an extended version of
+In \cite{SRB15}, it was proposed to add weak memory model simulation using
+\llvm transformation. In this section, we will present an extended version of
 this transformation. The new version supports the \llvm memory model fully,
-including support atomic instructions, support for more relaxed memory models
-than total store order, and specification of memory model as a parameter of the
+including support for atomic instructions, support for more relaxed memory models
+(than total store order), and specifying the memory model to use as a parameter of the
 transformation. It also allows for verification of the full range of properties
 supported by \divine (the original version was not usable for verification of
 memory safety). Furthermore, we propose ways to reduce the state space size
@@ -679,13 +679,13 @@ can be found in \autoref{sec:res:wm}.
 Relaxed memory models can be simulated using store buffers. Any write is first
 done into a thread-private buffer and therefore it is invisible for other
 threads. This buffer keeps the writes in FIFO order and it can be flushed
-nondeterministically into the memory, the order of flushing depends on
-particular memory model. For total store order, only the oldest entry can be
+nondeterministically into memory; the order of flushing depends on
+the particular memory model. For total store order, only the oldest entry can be
 flushed, for partial store order any entry can be flushed, provided that there
 is no older entry for the same memory location. Furthermore, any load has to
 first look into the store buffer of its thread for newer values of the loaded
-memory location, only if there is no such value, it can look into the memory.
-See \autoref{fig:trans:wm:sb} for an example of a store buffer instrumentation.
+memory location and only if there is no such value, it can look into memory.
+See \autoref{fig:trans:wm:sb} for an example of store buffer instrumentation.
 
 \begFigure[tp]
 
@@ -715,12 +715,12 @@ void thread1() {
 \bigskip In this example, each of the threads first writes into a global
 variable and later it reads the variable written by the other thread. Under
 sequential consistency, the possible outcomes would be $x = 1, y = 1$; $x = 1, y
-= 0$; and $x = 0, y = 1$ as at least one write must proceed before the first
-read can proceed. However, under total store order $x = 0, y = 0$ is also
+= 0$; and $x = 0, y = 1$ since at least one write must proceed before the first
+read can proceed. However, under total store order, $x = 0, y = 0$ is also
 possible: this corresponds to the reordering of the load on line 3 before the
-independent store on line 2. This behaviour can be simulated using store buffer,
+independent store on line 2. This behaviour can be simulated using store buffers;
 in this case the store on line 2 is not immediately visible, it is done into
-store buffer.  The following diagram shows (shortened) execution of the listed
+a store buffer. The following diagram shows a (shortened) execution of the listed
 code. Dashed lines represent where the given value is read from/stored to.
 
 \begin{center}
@@ -781,17 +781,17 @@ memory model.}
 \endFigure
 
 The basic idea behind the proposed \llvm memory model simulation is that a store
-buffer can be flushed nondeterministically in any order, however, not all orders
+buffer can be flushed nondeterministically in any order, even though not all orders
 result in valid runs of the program. The store buffer entries are enriched with
-an information about the instruction which created them and therefore the
-validity of a particular run can be checked when load, read fence, or atomic
+information about the instruction which created them and therefore the
+validity of a particular run can be checked when a load, a read fence, or an atomic
 instruction is performed, and the invalid runs are discarded (using
 `__divine_assume`).
 
 The approximation uses store buffers to delay `store` and `fence` instructions.
-There is a bounded store buffer associated with each thread of the program, this
+There is a bounded store buffer associated with each thread of the program and this
 buffer is filled by `store` and `fence` instructions and flushed
-nondeterministically. The store buffer contains *store entries*, each of them is
+nondeterministically. The store buffer contains *store entries*, each of them
 created by a single `store` instruction and contains the following fields:
 
 *   the **address** of the memory location of the store,
@@ -827,20 +827,20 @@ The aim of the proposed transformation is to approximate the \llvm memory model
 as closely as possible (except for the limitations given by the bound on store
 buffer size). For this reason, we support all atomic orderings apart from *not
 atomic*, which is modelled as *unordered*.[^unord] The store buffer is organized in
-FIFO manner, it is flushed nondeterministically in any order which satisfies the
+a FIFO manner; it is flushed nondeterministically in any order which satisfies the
 condition that no entry can be flushed into the memory if there is an older
 *matching entry*.  Entry $A$ matches entry $B$ (or depends on $B$) if both $A$
 and $B$ change the same memory location (this does not imply that the address in
 $A$ is the same as the address in $B$, as it can happen that $B$ changes only a
 part of the value written by $A$ or vice versa).
 
-[^unord]: The difference between *not atomic* and *unordered* is that both a
-compiler and hardware is allowed to split *not atomic* operations and the value
-of concurrently written *not atomic* location is undefined while for *unordered*
-operation it is guaranteed to be one of the previously written values; however,
+[^unord]: The difference between *not atomic* and *unordered* is that both the
+compiler and the CPU is allowed to split *not atomic* operations and the value
+of a concurrently-written *not atomic* location is undefined while for an *unordered*
+operation, it is guaranteed to be one of the previously written values; however,
 on most modern hardware, there is no difference between *unordered* and *not
 atomic* for objects of size less or equal to 64 bits. *Not atomic* instructions
-also permit large variety of optimizations. However, this is not a problem as
+also permit a large variety of optimizations. However, this is not a problem as
 \divine should be applied on the bitcode after any desired optimizations.
 
 Furthermore, the entry can be set as flushed using the flushed flag or deleted
@@ -858,11 +858,11 @@ All stores
 ~   are performed into the local store buffer. The address, the value, and the
     bitwidth of the value is saved, the atomic ordering of the entry is set
     according to the atomic ordering of the corresponding `store` instruction,
-    the flushed flag is set to false and the observed set is set to empty
+    the flushed flag is set to false and the observed set is set to the empty
     set.
 
 *Unordered* loads
-~   can be executed at any time. All loads load value from the local store
+~   can be executed at any time. All loads load the value from the local store
     buffer if it contains a newer value then the memory.
 
 *Monotonic* load
@@ -871,7 +871,7 @@ All stores
     any entry which:
 
     *   is in the same store buffer as $E$ and is older, or $E$ itself,
-    *   and it has at least *release* ordering.
+    *   and it has at least a *release* ordering.
 
     All these entries are set to be observed by the thread which performs the
     load.
@@ -880,11 +880,11 @@ All stores
 ~   (`cmpxchg` or `atomicrmw`) can be performed if a *monotonic* load can be
     performed and there is no not-flushed *monotonic* entry for the same memory
     location in any foreign store buffer. It also sets observed flags in the
-    same way as monotinc loads.
+    same way as *monotonic* loads do.
 
 *Acquire* fence
 ~   can be performed if there are no entries in foreign store buffers with at
-    least *release* ordering which were observed by the current thread. This way a
+    least *release* ordering which were observed by the current thread. This way, a
     *release* store or fence synchronizes with an *acquire* fence if the conditions of
     fence synchronization are met.
 
@@ -912,23 +912,23 @@ All stores
 ~   are not allowed by \llvm.
 
 *Release* fences
-~   add fence entry into the local store buffer. The memory ordering of the
+~   add a fence entry into the local store buffer. The memory ordering of the
     entry is set according to the ordering of the fence and the observed set is
     set to an empty set.
 
 *Acquire-release* fence
-~   behaves as both *release* and *acquire* fence.
+~   behaves as both a *release* and an *acquire* fence.
 
 *Sequentially consistent* fence
 ~   can be performed if an *acquire* fence can be performed and there are no
-    *sequentially consistent* entries in any foreign store buffer. This way a
+    *sequentially consistent* entries in any foreign store buffer. This way, a
     *sequentially consistent* fence synchronizes with any *sequentially
-    consistent* operation performed earlier.
+    consistent* operations performed earlier.
 
 *Sequentially consistent* loads and atomic compound operations
 ~   can be performed if
 
-    *   the same operation with *acquire-release* ordering and on the same memory
+    *   the same operation with an *acquire-release* ordering and on the same memory
         location can be performed,
     *   and a *sequentially consistent* fence can be performed.
 
@@ -936,14 +936,14 @@ While there is no explicit synchronization between multiple *sequentially
 consistent* stores/loads/fences there is still a total order of all the
 *sequentially consistent* operations which respects the program order of each of
 the threads and the synchronizes-with edges. For operations within a single
-thread their relative position in this total order is given by the order in
+thread, their relative position in this total order is given by the order in
 which they are executed.  For two stores executed in different threads which are
 not ordered as a result of an explicit synchronization, their relative order can
 be arbitrary as they are not dependent. Loads and atomic compound operations are
 explicitly synchronized as described above.
 
 The case of *monotonic* operations is similar, not-otherwise-synchronized stores
-and loads from different threads can be flushed in arbitrary order. The total
+and loads from different threads can be flushed in an arbitrary order. The total
 order of *monotonic* operations over a memory location can be derived from their
 order of execution:
 
@@ -954,22 +954,22 @@ order of execution:
     executed in;
 *   every `store` is ordered before any `load` which loads the value written by
     this or any later stores;
-*   this total order is consistent with order of execution of threads; for
+*   this total order is consistent with the order of execution of threads; for
     `load` instructions this is obvious, for `store` it follows from the fact
     that stores to the same memory location from the same thread cannot be
     reordered.
 
-In the case of `atomicrmw` and `cmpxchg` instructions a stronger synchronization
+In the case of `atomicrmw` and `cmpxchg` instructions, stronger synchronization
 is needed; representing them as an atomically-executed `load` followed by a
 `store` could break the total order. Suppose thread $0$ performs an atomic
 increment of a memory location `@x` and later thread $1$ increments the same
 location; now, if the store buffer entry corresponding to the `store` in thread
-$0$ is not flushed before the `load` in thread $1$ the old value will be read in
-thread $1$ and the result will be same as if only one increment executed. The
+$0$ is not flushed before the `load` in thread $1$, the old value will be read in
+thread $1$ and the result will be the same as if only one increment executed. The
 corresponding ordering is: `load` in thread $0$, `load` in thread $1$, `store`
 in thread $0$, and `store` in thread $1$. This ordering is possible even though
 both of the `load`--`store` combinations are executed atomically, due to the
-fact that the position of `store` in the total order is determined by the moment
+fact that the position of a `store` in the total order is determined by the moment
 in which this store is flushed. To resolve this, these atomic operations can
 only be performed if there are no atomic store entries for the given memory
 location in any foreign store buffer. This way, a total ordering of these
@@ -1190,11 +1190,11 @@ shown).
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
 \end{tikzpicture}
 
-4.  The entry for `@a` in the store buffer of thread 0 is flushed into the memory, but
+4.  The entry for `@a` in the store buffer of thread 0 is flushed into memory, but
     the entry is still remembered in the store buffer as it is a release entry and
-    future loads (it they have at least acquire ordering) will have to
+    future loads (if they have at least an acquire ordering) will have to
     synchronize with it. It would be also possible to first flush the entry for
-    `@x`, in this case it would be removed from the store buffer as it is the
+    `@x`; in this case it would be removed from the store buffer as it is the
     oldest entry, and therefore no explicit synchronization is necessary.
 
 \antispaceatend
@@ -1286,7 +1286,7 @@ shown).
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
 \end{tikzpicture}
 
-6.  The load of `@a` in thread 1 now proceeds, the load of `@x` will always
+6.  The load of `@a` in thread 1 now proceeds and the load of `@x` will always
     return `42` as there is a synchronizes-with edge between the *release* store
     and the *acquire* load of `@a` and therefore all action of thread 0 before
     the store of `@a` are visible after the load of `@a` returns the stored
@@ -1373,7 +1373,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 
 \end{tikzpicture}
 
-1.  After all the instructions of thread 0 executed the store buffer contains
+1.  After all the instructions of thread 0 executed, the store buffer contains
     two store entries and one fence entry which corresponds to the fence on line 6.
 
 \antispaceatend
@@ -1436,7 +1436,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 \end{tikzpicture}
 
 
-2.  The last entry from the store buffer is flushed, the entry remains in the
+2.  The last entry from the store buffer is flushed but the entry remains in the
     store buffer as it is preceded by a *release* entry.
 
 \begin{tikzpicture}[ ->, >=stealth', shorten >=1pt, auto, node distance=3cm
@@ -1491,9 +1491,9 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 
 \end{tikzpicture}
 
-3.  The *monotonic* load of `@a` executes, the value is already flushed into the
+3.  The *monotonic* load of `@a` executes; the value is already flushed into
     memory and the load does not cause any synchronization. It does, however,
-    add observed flag with thread ID of the thread which performed the load to
+    add an *observed* flag with thread ID of the thread which performed the load to
     any at least *release* barrier which precedes the store buffer entry for
     `@a`. The observed flag would be also added to any *release* (or stronger)
     store entries which precede the store entry for `@a` and to the entry for
@@ -1544,9 +1544,9 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 4.  The fence executes. It is an *acquire* fence so it synchronizes with any (at
     least) *release* fence which was observed by the thread which executed the
     *release* fence (thread 1). This means that all the entries before all the
-    observed *release* fences has to be flushed and evicted and the fence is
+    observed *release* fences have to be flushed and evicted and the fence is
     flushed and evicted too. Finally, as the store entry for `@a` was already
-    flushed and it would be first entry in the store buffer after the fence is
+    flushed and it would be the first entry in the store buffer after the fence is
     evicted, it is also evicted.  The load of `@x` will always return `42`.
 
 \antispaceatend
@@ -1558,17 +1558,17 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 
 \label{sec:trans:wm:flush}
 
-When a write is performed into a store buffer it can be flushed into the memory
+When a write is performed into a store buffer, it can be flushed into memory
 at any later time. To simulate this nondeterminism, we introduce a thread which
 is responsible for store buffer flushing. There will be one such *flusher*
 thread for each store buffer. The interleaving of this thread with the other
 threads will result in all the possible ways in which flushing can be done.
 
-The flusher threads runs an infinite loop, an iteration of this loop is enabled
+The flusher threads run an infinite loop; an iteration of this loop is enabled
 if there are any entries in the store buffer associated with this flusher
 thread. In each iteration of the loop, the flusher thread nondeterministically
 selects an entry in the store buffer and flushes if it is possible (if there is
-no older entry for matching location).
+no older entry for a matching location).
 
 ## Atomic Instruction Representation
 
@@ -1662,17 +1662,17 @@ The atomic compare-and-exchange instruction atomically loads a value from
 `pointer`, compares it with `cmp` and, if they match, stores `new` into
 `pointer`. It returns a tuple which contains the original value loaded from
 `pointer` and a boolean flag which indicates if the comparison succeeded. Unlike
-the other atomic instructions, `cmpxchg` take two atomic ordering arguments; one
-which gives ordering in the case of success and the other for ordering in the
-case of failure. This instruction can be replaced by a code which performs
-`load` with `failure_ordering`, comparison of the loaded value and `cmp` and, if
+the other atomic instructions, `cmpxchg` takes two atomic ordering arguments; one
+which gives the ordering in the case of success and the other for ordering in the
+case of failure. This instruction can be replaced by code which performs
+a `load` with `failure_ordering`, comparison of the loaded value and `cmp` and, if
 the comparison succeeds, an additional synchronization with `succeeds_ordering`
-and `store` with `succeeds_ordering`. The reason to use `failure_ordering` in
-the load is that failed `cmpxchg` should be equivalent to a load with
+and a `store` with `succeeds_ordering`. The reason to use `failure_ordering` in
+the load is that a failed `cmpxchg` should be equivalent to a load with
 `failure_ordering`. The additional synchronization in the case of success is
-needed to strengthen ordering to `success_ordering` and to ensure total store
-order of the all operations which affect the given memory location. An example
-of such transformation can be seen in \autoref{fig:trans:wm:atomic:cmpxchg}.
+needed to strengthen the ordering to `success_ordering` and to ensure a total store
+order of all operations which affect the given memory location. An example
+of such a transformation can be seen in \autoref{fig:trans:wm:atomic:cmpxchg}.
 
 \begFigure[tp]
 
@@ -1744,8 +1744,7 @@ for example total store order is equivalent to setting all of the minimal
 orderings to *release-acquire*, the memory model of `x86` (which is basically TSO
 with *sequentially consistent* atomic compare and swap, atomic
 read-modify-write, and fence) can be approximated by setting `load` to *acquire*,
-`store` to *release*, and the remaining instructions to *sequentially consistent
-ordering*.
+`store` to *release*, and the remaining instructions to *sequentially consistent*.
 
 ## Memory Cleanup
 
@@ -1755,10 +1754,10 @@ When a write to a certain memory location is delayed, it can happen that this
 memory location becomes invalid before the delayed write is actually performed.
 This can happen both for local variables and for dynamically allocated memory.
 For local variables, the value might be written after the function exits, while
-for the dynamic memory, value might be stored after the memory is freed.
+for dynamic memory, the value might be stored after the memory is freed.
 
 To solve this problem, entries corresponding to invalidated memory need to be
-removed from local store buffer. The reason to leave the entries in foreign
+removed from the local store buffer. The reason to leave the entries in foreign
 store buffers is that the existence of such entries suggests that the write to
 the (soon-to-be invalidated) memory location did not synchronize properly with
 the end of the scope of the memory location.
@@ -1766,33 +1765,33 @@ the end of the scope of the memory location.
 For dynamic memory, it is sufficient to remove all entries corresponding to the
 object just before the call to `__divine_free` which performs the deallocation.
 For local variables, it is necessary to remove the entries just before the
-function exits, to do this we employ the local variable cleanups described in
+function exits and to do this we employ the local variable cleanups described in
 \autoref{sec:trans:b:lvc}.
 
 ## Integration with $\tau+$ Reduction
 
 \label{sec:trans:wm:tau}
 
-As described in \autoref{sec:divine:tau} one of the important reduction
+As described in \autoref{sec:divine:tau}, one of the important reduction
 techniques in \divine is the $\tau+$ reduction, which allows execution of
 multiple consecutive instructions in one atomic block if there is no more then
 one action observable by other threads in this block. For example, a `store`
 instruction is observable if and only if it stores to a memory block to which
 some other thread holds a pointer.
 
-This means that any load from or store into store buffer will be considered to
+This means that any load from or any store into store buffer will be considered to
 be a visible action, because the store buffer has to be visible both from the
-thread executing the load or store and from the thread which flushes store
-buffer to the memory.
+thread executing the load or the store and from the thread which flushes the store
+buffer to memory.
 
 \bigskip
 
 To partially mitigate this issue, it was proposed in \cite{SRB15} to
-bypass store buffer when storing to addresses which are considered thread
-private by \divine's $\tau+$ reduction. To do this, `__divine_is_private`
+bypass the store buffer when storing to addresses which are considered thread
+private by \divine's $\tau+$ reduction. To do this, the `__divine_is_private`
 intrinsic function is used in the function which implements weak memory store,
-and, if the address to which store is performed is indeed private, the store is
-executed directly, bypassing store buffer.
+and, if the address to which the store is performed is indeed private, the store is
+executed directly, bypassing the store buffer.
 
 This reduction is indeed correct for TSO stores which were simulated in
 \cite{SRB15}. It is easy to see that the reduction is correct if a memory
@@ -1802,16 +1801,16 @@ therefore no store buffer is needed, the second case means the store buffer will
 be used always. If the memory location (say `x`) becomes public during the run
 of the program, it is again correct (the publication can happen only by writing
 an address of memory location from which `x` can be reached following pointers
-into some already public location):
+into some already-public location):
 
-*   if `x` is first written and then published then, were the store buffers
-    used, the value of `x` would need to be flushed from store buffer before `x`
+*   if `x` is first written and later published, then, were the store buffers
+    used, the value of `x` would need to be flushed from the store buffer before `x`
     could be reached from the other thread (because the stores cannot be
     reordered under TSO), and therefore the observed values are the same with
     and without the reduction;
 
 *   if `x` is first made private and then written, then the "making private"
-    must happen by changing some pointer in public location, an action which
+    must happen by changing some pointer in a public location, an action which
     will be delayed by the store buffer. However, this action must be flushed
     before the store to `x` in which it is considered private, as otherwise `x`
     would not be private, and therefore also before any other modifications to
@@ -1820,11 +1819,11 @@ into some already public location):
 *   the remaining possibilities (`x` written after the publication, and `x`
     written before making it private) are not changed by the reduction.
 
-In our case of the general \llvm memory model with presence of explicit atomic
+In the case of the general \llvm memory model with presence of explicit atomic
 instructions, this reduction cannot be used: suppose a memory location `x` is
-written while it is thread private and later the address of `x` is written into
-visible location `y`. Now it might be possible, provided that `y` has
-weaker than *release* ordering, that the old value of `x` is accessed through `y`
+written while it is thread-private and later the address of `x` is written into
+a visible location `y`. Now it might be possible, provided that `y` has
+weaker than *release* ordering that the old value of `x` is accessed through `y`
 (if `y` is flushed before `x`). For this reason, stores to all memory locations
 have to go through the store buffer (unless it is possible to prove that they
 can never be visible by more than one thread).
@@ -1832,18 +1831,18 @@ can never be visible by more than one thread).
 \bigskip
 
 Furthermore, considering that all store buffers are reachable from all threads,
-and therefore any memory location which has entry in store buffer is considered
+and therefore any memory location which has an entry in the store buffer is considered
 public, we can bypass store buffers for `load` instructions, even under \llvm
 memory model. That is, the store buffer lookup can be bypassed for a memory
 location if it is considered private by \divine, because no memory location
-which is private can have entry in any store buffer. This means that loads of
+which is private can have an entry in any store buffer. This means that loads of
 private memory locations are no longer considered as visible actions by $\tau+$,
 which leads to a state space reduction.
 
-As a final optimization, any load from or store into local variable which never
-escapes scope of the function which allocated it need not be instrumented, that
-is the `load` or `store` instruction need not be replaced with appropriate weak
-memory simulating version. To detect these cases, we currently use \llvm's
+As a final optimization, any load from or store into a local variable which never
+escapes the scope of the function which allocated it need not be instrumented; that
+is, `load` or `store` instruction need not be replaced with the appropriate
+weak-memory-simulating version. To detect these cases, we currently use \llvm's
 `PointerMayBeCaptured` function to check if the memory location of a local
 variable was ever written to some other memory location. A more precise
 approximation could use pointer analysis to detect which memory locations can
@@ -1869,13 +1868,13 @@ The transformation implementation consists of two passes over \llvm bitcode, the
 first one is used to split loads and stores larger than 64 bits into smaller
 loads and stores. In the second phase, the bitcode is instrumented with the
 \llvm memory model using functions which implement stores, loads, and fences
-using store buffer and atomic functions are rewritten as described in
+using store buffers and atomic functions are rewritten as described in
 \autoref{sec:trans:wm:atomic}. The userspace functions simulating the memory
 model are implemented in C++ and compiled together with the verified program by
 `divine compile`. The userspace functions can be found in
 `lart/userspace/weakmem.h` and `lart/userspace/weakmem.cpp`, the transformation
 pass can be found in `lart/weakmem/pass.cpp`. The transformation can be run
-using `lart` binary, see \autoref{sec:ap:lart} for detains on how to compile and
+using the `lart` binary, see \autoref{sec:ap:lart} for details on how to compile and
 run \lart.
 
 ### Userspace Functions
@@ -1903,7 +1902,7 @@ enum __lart_weakmem_order {
 ```
 
 \noindent
-An enumeration type which corresponds to the \llvm atomic orderings.
+An enumeration type which corresponds to \llvm atomic orderings.
 
 ```{.c}
 void __lart_weakmem_store( char *addr, uint64_t value,
@@ -1914,14 +1913,14 @@ void __lart_weakmem_fence( __lart_weakmem_order ord );
 ```
 
 \noindent These functions replace `store`, `load`, and `fence` instructions. The
-transformation is expected to fill-in `bitwidth` parameter according to the
+transformation is expected to fill in the `bitwidth` parameter according to the
 actual bit width of the loaded/stored type and to perform any necessary casts.
-Each of these functions is performed atomically using \divine atomic mask. Load
-function must be able to reconstruct loaded value from several entries in the
+Each of these functions is performed atomically using \divine's atomic mask. The load
+function must be able to reconstruct the loaded value from several entries in the
 store buffer as it is possible that some entry corresponds to only a part of the
 requested value. While these functions are primarily intended to be used by the
 \lart transformation, their careful manual usage can be used to manually
-simulate weak memory model for a subset of operations.
+simulate a weak memory model for a subset of operations.
 
 ```{.c}
 void __lart_weakmem_sync( char *addr, uint32_t bitwidth,
@@ -1940,8 +1939,8 @@ void __lart_weakmem_cleanup( int cnt, ... );
 
 \noindent This function is used to implement memory cleanups
 (\autoref{sec:trans:wm:cleanup}). Its variadic arguments are memory addresses
-which should be evicted from local store buffer, `cnt` should be set to the
-number of these addresses.
+which should be evicted from the local store buffer, `cnt` should be set to the
+number of addresses provided.
 
 ```{.c}
 void __lart_weakmem_memmove( char *dest, const char *src,
@@ -1955,7 +1954,7 @@ void __lart_weakmem_memset( char *dest, int c, size_t n );
 `llvm.memset`, and `llvm.memmove` intrinsics. The transformation pass will
 derive two versions of these functions, one to be used by the weak memory model
 implementation (this version must not use store buffers) and the other to
-implement these intrinsics in weak memory model.
+implement these intrinsics in the weak memory model.
 
 \bigskip
 
@@ -1968,7 +1967,7 @@ All of these functions have following attributes (using GCC syntax
 `flatten`
 ~   to inline all function calls these functions contain into their body (this
     is used to make sure these functions do not call any function which could
-    use store buffer);
+    use store buffers);
 
 `annotate("lart.weakmem.bypass")`
 ~   which indicates to the transformation pass that these functions should not be
@@ -1977,39 +1976,39 @@ All of these functions have following attributes (using GCC syntax
 `annotate("lart.weakmem.propagate")`
 ~   which indicates to the transformation pass that any function called from
     these functions should not be transformed to use store buffers (this is done
-    to handle cases in which compiler refuses to inline all calls into these
-    functions, the transformation pass will output a warning if this happens).
+    to handle cases in which the compiler refuses to inline all calls into these
+    functions; the transformation pass will output a warning if this happens).
 
 ### \lart Transformation Pass
 
 The transformation pass processes all the functions in the module one by one.
-For the weak memory implementation functions it only transforms calls to
+For the weak memory implementation functions, it only transforms any calls to
 `llvm.memmove`, `llvm.memcpy`, and `llvm.memset` intrinsics to calls to their
 implementations which do not use store buffer simulation.
 
-For other functions the transformation is done in the following three phases.
+For other functions, the transformation is done in the following three phases.
 
 1.  Atomic compound instructions (`atomicrmw` and `cmpxchg`) are replaced by
     their equivalents as described in \autoref{sec:trans:wm:atomic}.
 
 2.  Loads and stores are replaced by calls to the appropriate userspace
     functions.  This includes casting of the addresses to the `i8*` \llvm type
-    and values need to be truncated from respectively extended to the `i64`
-    type. For non-integral types this also includes `bitcast` from (to) integral
-    types (a cast which does not change bit pattern of the value, it changes
+    and values need to be truncated or respectively extended to the `i64`
+    type. For non-integral types, this also includes a `bitcast` from (to) integral
+    types (a cast which does not change the bit pattern of the value, changing
     only its type).
 
     The atomic ordering used in the \llvm memory model simulation is derived
     from the atomic ordering of the original instruction and from the default
-    atomic ordering for given instruction type which is determined by
-    transformation configuration (\autoref{sec:trans:wm:spec}).
+    atomic ordering for a given instruction type which is determined by
+    the configuration of the transformation (\autoref{sec:trans:wm:spec}).
 
 3.  Memory intrinsics (`llvm.memmove`, `llvm.memcpy`, and `llvm.memset`) are
     translated to the appropriate userspace functions which implement these
     operations using store buffers.
 
 The transformation is not applied to instructions which manipulate local
-variables which do not escape scope of the function which defines them.
+variables which do not escape the scope of the function which defines them.
 
 The transformation is configurable. It can be specified what minimal atomic
 ordering is guaranteed for each instruction type and what should be the size
@@ -2020,25 +2019,25 @@ bound for store buffers. The specification is given when \lart is invoked (see
 ~   for the unconstrained \llvm memory model;
 
 `tso`
-~   for Total Store Order simulation, this guarantees that all loads have at
-    least *acquire* ordering, all stores have at least *release* ordering, and all
-    the other operations have at least *acquire-release* ordering.
+~   for Total Store Order simulation; this guarantees that all loads have at
+    least an *acquire* ordering, all stores have at least a *release* ordering, and all
+    the other operations have at least an *acquire-release* ordering.
 
 `x86`
 ~   for simulation of a memory model similar to the one in `x86` CPUs. In this
-    case, loads have at least *acquire* ordering, stores have at least *release*
-    ordering and all other transformed operations have *sequentially consistent*
+    case, loads have at least an *acquire* ordering, stores have at least a *release*
+    ordering and all other transformed operations have a *sequentially consistent*
     ordering.
 
 custom specification
 ~   is a comma separated list of `kind=ordering` pairs, where `kind` is an
     instruction type (one of `all`, `load`, `store`, `cas`, `casfail`, `casok`,
-    `armw`, and `fence`) and `ordering` is atomic ordering specification (one of
+    `armw`, and `fence`) and `ordering` is the atomic ordering specification (one of
     `unordered`, `relaxed`,[^rel] `acquire`, `release`, `acq_rel`, and
-    `seq_cst`). The list of these pairs is processed left to right, the latter
-    entries override the former.
+    `seq_cst`). The list of these pairs is processed left to right so that later
+    entries override earlier ones.
 
-    For example, TSO can be specified as `all=acq_rel`, equivalent of `x86` can
+    For example, TSO can be specified as `all=acq_rel`, the equivalent of `x86` can
     be specified as `all=seq_cst,load=acquire,store=release`.
 
 [^rel]: In this case `relaxed` is used to denote the \llvm's monotonic ordering
@@ -2051,9 +2050,9 @@ to match the name used for this ordering in the C++11/C11 standard.
 \label{sec:trans:opt}
 
 \divine aims at verification of real-world code written in C and C++. Both \llvm
-IR and assembly produced from such a code is often heavily optimized during the
-compilation to increase its speed. To verify the code as precisely as possible,
-it is desirable to verify \llvm IR with all the optimizations which will be used
+IR and assembly produced from such code is often heavily optimized during the
+compilation to increase its execution speed. To verify the code as precisely as possible,
+it is desirable to verify the \llvm IR with all the optimizations which will be used
 in the binary version of the program and the binary should be compiled by the
 same compiler as the \llvm IR used in \divine. Ideally, it would be possible to
 use the same \llvm IR for verification and to build the binary. This is,
@@ -2073,11 +2072,11 @@ optimizations do not meet two critical requirements for verification.
     behaviour of parallel programs, and that many programs written in C/C++
     contain undefined behaviour as they access non-atomic non-volatile variables
     from multiple threads. See \autoref{fig:trans:opt:undef} for an example of
-    such property-changing optimization.
+    such a property-changing optimization.
 
 *   **They might increase state space size.** Not all optimizations which lead
     to faster execution lead to faster verification as they might change program
-    behaviour in such a way that model checker generates more states. An example
+    behaviour in such a way that the model checker generates more states. An example
     of such a transformation can be any transformation which increases the
     number of registers in a function. This might cause states which were
     originally considered to be the same to become distinct after the
@@ -2100,9 +2099,9 @@ int main() {
 }
 ```
 
-This code is an example of an undefined behaviour, the global non-atomic
-variable `x` is written concurrently from two threads. For this program
-assertion safety does not hold. The assertion can be violated if the assignment
+This code is an example of an undefined behaviour. The global non-atomic
+variable `x` is written concurrently from two threads. For this program,
+assertion safety does not hold: the assertion can be violated if the assignment
 `x = 2` executes between `x = 1` and `assert( x == 1 )`.
 
 
@@ -2117,7 +2116,7 @@ ret void
 
 The body of `foo` emitted by Clang without any optimization is a straightforward
 translation of the C++ code. It stores into global `@x`, then loads it and
-compares the loaded value to `0`. In this case, \divine will report assertion
+compares the loaded value to `0`. In this case, \divine will report an assertion
 violation.
 
 ```{.llvm}
@@ -2126,21 +2125,21 @@ tail call void @__divine_assert(i32 1)
 ret void
 ```
 
-This is optimized (`-O2`) version of `foo`. `store` is still present, but the
+This is optimized (`-O2`) version of `foo`. The `store` is still present, but the
 compiler assumes that the `load` which should follow it will return the save
 value as written immediately before it (this is a valid assumption for
 non-atomic, non-volatile shared variable). For this reason, the assertion is
 optimized into `assert( true )` and no assertion violation is possible.
 
 \begCaption
-An example of program in which optimizations change property satisfiability.
+An example of program in which optimizations change whether a property holds.
 \endCaption
 \label{fig:trans:opt:undef}
 \endFigure
 
 \begFigure[tp]
 
-Suppose a program with global atomic boolean variable `turn` and a code snipped
+Suppose a program with a global atomic boolean variable `turn` and a code snippet
 which waits for this value to be set to true:
 
 ```{.cpp}
@@ -2190,7 +2189,7 @@ if ( !trun ) {
 
 While this code might be faster in practice due to branch prediction, for model
 checking this is an adverse change as the model checker can now distinguish the
-state after one and two executions of the original loop based on the register
+state after one and two executions of the original loop based on register
 values.
 
 \begCaption
@@ -2200,11 +2199,11 @@ An example of optimization with an adverse effect on model checking.
 \endFigure
 
 For these reasons, we suggest some optimization techniques which would allow
-optimization of \llvm IR and not change verification outcome or increase state
-space size. On the other hand, these techniques can use a specific knowledge
+optimization of \llvm IR but not change the verification outcome or increase the state
+space size. On the other hand, these techniques can use specific knowledge
 about the verification environment they will be used in. Some of these
 techniques were already implemented as part of this thesis and are evaluated in
-\autoref{sec:res:opt}, some of them are proposals for a future work.
+\autoref{sec:res:opt}, some of them are proposals for future work.
 
 ## Constant Local Variable Elimination
 
@@ -2212,13 +2211,13 @@ techniques were already implemented as part of this thesis and are evaluated in
 
 Especially with optimizations disabled, compilers often create `alloca`
 instructions (which correspond to stack-allocated local variables) even for
-local variables which need not have address and perform loads and stores into
+local variables which need not have an address and perform loads and stores into
 those memory locations instead of keeping the value in registers. To eliminate
 unnecessary `alloca` instructions, \llvm provides a register promotion pass.
-Nevertheless, this pass is not well suited for the model checking as it can add
+Nevertheless, this pass is not well suited for model checking as it can add
 registers into the function and in this way increase the state space size. For this
 reason, we introduce a pass which eliminates *constant* local variables, as these
-can be eliminated without adding registers (actually, some registers can be
+can be eliminated without adding registers (in fact, some registers can be
 removed in this case).
 
 With this reduction, an `alloca` instruction can be eliminated if the following
@@ -2235,14 +2234,14 @@ the same, and therefore can be replaced with the value which was stored into the
 
 In the current implementation of this pass, each function is searched for
 `alloca` instructions which meet these criteria (ignoring uses of address in
-`llvm.dbg.declare` intrinsic[^dbg]), all uses of results of loads from these
+the `llvm.dbg.declare` intrinsic[^dbg]) and all uses of results of loads from these
 memory locations are replaced with the value which was originally stored into
-it, and finally the `alloca` and all its uses are eliminated from the function.
+it; finally the `alloca` and all its uses are eliminated from the function.
 Please note that the conditions ensure that the only uses of the `alloca` are
 the single store into it, the loads which read it, and `llvm.dbg.declare`
 intrinsics.
 
-[^dbg]: This intrinsic is used to bind a debugging information such as variable
+[^dbg]: This intrinsic is used to bind debugging information such as a variable
 name with the variable's \llvm IR representation. It does not affect the
 behaviour of the program in any way.
 
@@ -2262,7 +2261,7 @@ For a global variable to be made constant in this way, it must meet the followin
 conditions:
 
 *   it must be never written to, neither directly nor through any pointer;
-*   it must have constant initializer.
+*   it must have a constant initializer.
 
 While the second condition can be checked from the definition of the global
 variable, the first one cannot be exactly efficiently determined. It can be
@@ -2285,14 +2284,14 @@ it is no longer useful. This means that there can be states in the state space
 which differ only in a value of a register which does not change the execution
 of the program as it will be never used again. This situation can be eliminated
 by setting the no-longer-used registers to 0. However, this is not possible in
-the \llvm as it is in a static single assignment form.
+\llvm as it is in a static single assignment form.
 
 Nevertheless, with addition of one intrinsic function into the \divine's \llvm
 interpreter, it is possible to zero registers in \divine at the place determined
 by the call to this intrinsic. Since \llvm is type safe, this intrinsic is
 actually implemented as a family of functions with `__divine_drop_register.`
 prefix, one for each type of register which needs to be zeroed. Signatures for
-these functions are generated automatically by the \lart pass which perform
+these functions are generated automatically by the \lart pass which performs
 register zeroing. Any call to a function with this prefix is implemented as an
 intrinsic which zeroes the register and sets it as uninitialized.
 
@@ -2319,7 +2318,7 @@ each function with the following algorithm.
 
 Furthermore, if the instruction in question is an `alloca`, it is treated
 specially. `alloca` cannot be zeroed until the local variable it represents is
-released. A simple heuristics is used to determine if the local variable might
+released. A simple heuristic is used to determine if the local variable might
 be aliased, and if not, it is dropped immediately before the register which
 corresponds to its `alloca` is zeroed. Otherwise the register is not zeroed and
 the `alloca` will be released automatically by \divine.
@@ -2329,19 +2328,19 @@ the `alloca` will be released automatically by \divine.
 \label{sec:trans:opt:loop}
 
 In \divine a loop will generate a state at least once an iteration. This is
-caused by the heuristics which makes sure the state generation terminates.
+caused by the heuristic which makes sure that state generation terminates.
 However, if the loop performs no visible action and always terminates, it is
 possible to run it atomically. This way, the entire loop is merged into one
 action, which leads to further reduction of the state space size.
 
-This reduction is not implemented yet, however, to implement it, it would be
+This reduction is not implemented yet; however, to implement it, it would be
 necessary to have the following components:
 
 1.  loop detection, this is possible using \llvm's `LoopAnalysis`;
-2.  termination analysis for \llvm loops, which requires recovering of loop
+2.  termination analysis for \llvm loops, which requires recovery of loop
     condition from \llvm IR and should employ some existing termination
     detection heuristic;
-3.  pointer analysis to detect if loop accesses any variable which is (or might
+3.  pointer analysis to detect if the loop accesses any variable which is (or might
     be) accessible from other threads; it is also possible to use
     `__divine_is_private` to detect visibility dynamically, or combine these
     approaches.
@@ -2353,53 +2352,53 @@ necessary to have the following components:
 \divine is an explicit state model checker and it does not handle data
 nondeterminism well. Nevertheless, data nondeterminism is often useful, for
 example to simulate input or random number generation by a variable which can
-have arbitrary value from some range. The only way to simulate such
+have an arbitrary value from some range. The only way to simulate such
 nondeterminism in \divine is to enumerate all the possibilities explicitly,
-using `__divine_choice`. This, of course, can lead to large state space, as it
-causes branching of the size of the argument of `__divine_choice`.
+using `__divine_choice`. This, of course, can lead to a large state space, as it
+causes branching of the size given by the argument of `__divine_choice`.
 
 Nevertheless, for small domains, this handling of nondeterminism is quite
 efficient, as it does not require any symbolic data representation. This way,
-`__divine_choice` is used for example to simulate failure of `malloc`: `malloc`
+`__divine_choice` is used for example to simulate the failure of `malloc`: `malloc`
 can return a null pointer if the allocation is not possible and \divine
 simulates this in such a way that any call to `malloc` nondeterministically
 branches into two possibilities; either the `malloc` succeeds and returns
 memory, or it fails. Similarly, weak memory model simulation
 (\autoref{sec:trans:wm}) uses nondeterministic choice to determine which entry
-of store buffer should be flushed.
+of the store buffer should be flushed.
 
-For the verification of real-world programs it is useful to be able to constrain
+For the verification of real-world programs, it is useful to be able to constrain
 nondeterminism which can occur in them, for example as a result of a call of the
 `rand` function, which returns a random number from some interval, usually from
 $0$ to $2^{31} - 1$. Such a nondeterminism is too large to be handled
 explicitly. Nevertheless, it often occurs in patterns like `rand() % N` for some
-fixed and usually small number `N`. In these cases it is sufficient to replace
+fixed and usually small number `N`. In these cases, it is sufficient to replace
 `rand() % N` with `__divine_choice( N )` which might be tractable for
 sufficiently small values of `N`.
 
-To automate this replacement at least in some cases a \llvm pass which tracks
-nondeterministic value and constraints the nondeterministic choice to smallest
-possible interval can be created. A very simple implementation of such pass
+To automate this replacement, at least in some cases an \llvm pass which tracks
+nondeterministic values and constraints the nondeterministic choice to the smallest
+possible interval can be created. A very simple implementation of such a pass
 which tracks nondeterminism only inside one function and recognizes two
-patterns, cast to `bool` and modulo constant number, can be found in
+patterns, a cast to `bool` and modulo constant number, can be found in
 `lart/svcomp/svcomp.cpp`, class `NondetTracking`. For a more complete
-implementation, a limited symbolic execution of part of the program which uses
+implementation, limited symbolic execution of the part of the program which uses
 the nondeterministic value could be used. This version is not implemented yet.
 
 # Transformations for SV-COMP 2016
 
-SV-COMP is a competition of software verifiers associated with TACAS conference
-\cite{SVCOMP}. It provides a set of benchmarks in several categories, benchmarks
-are written in C. \divine is participating in SV-COMP 2016 in the concurrency
+SV-COMP is a competition of software verifiers associated with the TACAS conference
+\cite{SVCOMP}. It provides a set of benchmarks in several categories, the benchmarks
+being written in C. \divine is participating in SV-COMP 2016 in the concurrency
 category which contains several hundred of short parallel C programs. Some of
-these programs have infinite state space (usually infinite number of threads),
-or use nondeterministic data heavily an therefore are not tractable by \divine.
+these programs have an infinite state space (usually infinite number of threads),
+or use nondeterministic data heavily and therefore are not tractable by \divine.
 There are, however, many programs which can be verified by \divine, with some
 minor tweaks.
 
 In order to make it possible to verify the SV-COMP programs with \divine, they
 have to be pre-processed, as they use some SV-COMP-specific functions and rely
-on certain assumptions about the semantics of C which is not always met when C
+on certain assumptions about the semantics of C which are not always met when C
 is compiled into \llvm.
 
 1.  The benchmark is compiled using `divine compile`.
@@ -2410,7 +2409,7 @@ is compiled into \llvm.
 3.  Using \lart, all reads and writes to global variables defined in the
     benchmark are set to be volatile. This is done because SV-COMP models often
     contain undefined behaviour, such as concurrent access to non-volatile,
-    non-atomic variable which could be optimized improperly for SV-COMP. This
+    non-atomic variables, which could be optimized improperly for SV-COMP. This
     pass actually hides errors in SV-COMP benchmarks; nevertheless, it is
     necessary, since SV-COMP benchmarks assume any use of shared variable will
     cause a load from it, which is not required by the C standard.
@@ -2420,7 +2419,7 @@ is compiled into \llvm.
 
 5.  Nondeterminism tracking (\autoref{sec:trans:opt:nondet}) is used.
 
-6.  \lart is used to disable `malloc` nondeterministic failure as SV-COMP
+6.  \lart is used to disable nondeterministic failures in `malloc` since SV-COMP
     assumes that `malloc` never fails.
 
 7.  Finally, \divine is run on the program with Context-Switch-Directed
