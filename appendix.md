@@ -4,7 +4,7 @@
 
 The archive submitted with this thesis contains the sources of the thesis itself
 and a \darcs repository with \divine. The \divine repository is a snapshot of
-\url{https://paradise.fi.muni.cz/~xstill/dev/divine/next-xstill}, taken at the
+\url{http://paradise.fi.muni.cz/~xstill/dev/divine/next-xstill}, taken at the
 time of submission of this thesis. You can use the command `darcs log -is` in
 the `divine` subdirectory to browse the changes to \divine. Since the primary
 aim of this thesis are \llvm transformations, most of the implementation was

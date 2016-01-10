@@ -562,13 +562,13 @@ interface is intended to be used primarily by developers of the language support
 and libraries for \divine, while the annotations are designed to be used by
 users of \divine.
 
-The C++ interface is RAII-based,[^raii] and works similarly to C++11
-`unique_lock` with recursive mutexes. An atomic section begins by construction
-of an object of the type `divine::InterruptMask` and it is left either by a call to
-the `release` method of this object or by the destructor of the object. When atomic
-sections are nested, only the `release` on the object which started the atomic
-section actually ends the atomic section. See \autoref{fig:ex:atomic:cpp} for an
-example.
+The C++ interface is RAII-based,[^raii] and works similarly to the C++11
+mutex ownership wrapper `unique_lock` with a recursive mutex. An atomic section
+begins by construction of an object of the type `divine::InterruptMask` and it
+is left either by a call to the `release` method of this object or by the
+destructor of the object. When atomic sections are nested, only the `release` on
+the object which started the atomic section actually ends the atomic section.
+See \autoref{fig:ex:atomic:cpp} for an example.
 
 \begFigure[tp]
 
@@ -644,10 +644,10 @@ identified in \llvm IR, the second to make sure the function will not be
 inlined.
 
 The second phase is the \lart pass which adds atomic sections into annotated
-functions. This pass is implemented in `lart/reduction/interrupt.cpp` by class
-`Mask`.  For each function which is annotated, it adds a call to
-`__divine_interrupt_mask` at the beginning of the function, and a call to
-`__divine_interrupt_unmask` before any exit point of the function (using the
+functions. The pass implementation can be found in class `Mask` in
+`lart/reduction/interrupt.cpp`. For each function which is annotated, it adds a
+call to `__divine_interrupt_mask` at the beginning of the function, and a call
+to `__divine_interrupt_unmask` before any exit point of the function (using the
 cleanup transformation introduced in \autoref{sec:trans:b:vex}). The unmask call
 is conditional: it is only called if the mask call returned 0 (that is, the
 current atomic section begun by this call).
@@ -925,7 +925,7 @@ All stores
     *sequentially consistent* fence synchronizes with any *sequentially
     consistent* operations performed earlier.
 
-*Sequentially consistent* loads and atomic compound operations
+*Sequentially consistent* load or atomic compound operation
 ~   can be performed if
 
     *   the same operation with an *acquire-release* ordering and on the same memory
@@ -985,15 +985,13 @@ with a `fence` instruction.
 
 \begFigure[p]
 
-```{.cpp .numberLines}
+```{.cpp}
 int x;
 std::atomic< bool > a;
-
 void thread0() {
     x = 42;
     a.store( true, std::memory_order_release );
 }
-
 void thread1() {
     while ( !a.load( std::memory_order_acquire ) { }
     std::cout << x << std::endl; // always prints 42
@@ -1026,13 +1024,13 @@ shown).
   \draw [-] (0,-4) -- (8,-4);
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-0.25) -- (-4, -0.25);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
   \draw [->] (3, -0.25) -- (3.5, -0.25);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1071,13 +1069,13 @@ shown).
   \node () [anchor=west] at (-6,-4.5)  {\texttt{Unordered}};
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-0.75) -- (-4, -0.75);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
   \draw [->] (3, -0.25) -- (3.5, -0.25);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1128,13 +1126,13 @@ shown).
   \node () [anchor=west] at (-6,-5.5)  {\texttt{Release}};
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-1.75) -- (-4, -1.75);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
   \draw [->] (3, -0.25) -- (3.5, -0.25);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1178,13 +1176,13 @@ shown).
   \node () [anchor=west] at (-6,-5.5)  {\texttt{Release, flushed}};
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-1.75) -- (-4, -1.75);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
   \draw [->] (3, -0.25) -- (3.5, -0.25);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1237,13 +1235,13 @@ shown).
   \node () [anchor=west] at (-6,-5.5)  {\color{red}\texttt{Release, flushed}};
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-1.75) -- (-4, -1.75);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load {\color{red}@a acquire}}};
   \draw [->] (3, -0.5) -- (3.5, -0.5);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1274,13 +1272,13 @@ shown).
   \draw [-] (0,-4) -- (8,-4);
 
   \node () [] at (-4.5, 0.5) {thread 0};
-  \draw [->, dashed] (-4.5,0) -- (-4.5,-2);
+  \draw [->, dashed] (-4.5,0) -- (-4.5,-2.25);
   \node () [anchor=west] at (-4, -0.5) {\texttt{store @x 42}};
   \draw [->] (-4.5,-1.75) -- (-4, -1.75);
   \node () [anchor=west] at (-4, -1.5) {\texttt{store @a true release}};
 
   \node () [] at (3, 0.5) {thread 1};
-  \draw [->, dashed] (3,0) -- (3,-2);
+  \draw [->, dashed] (3,0) -- (3,-2.25);
   \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a acquire}};
   \draw [->] (3, -0.75) -- (3.5, -0.75);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{load @x}};
@@ -1367,7 +1365,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
   \node () [] at (3.5, 0.5) {thread 1};
   \draw [->, dashed] (3,0) -- (3,-3.25);
   \draw [->] (3, -0.25) -- (3.5, -0.25);
-  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monot.}};
   \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
   \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
 
@@ -1429,7 +1427,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
   \node () [] at (3.5, 0.5) {thread 1};
   \draw [->, dashed] (3,0) -- (3,-3.25);
   \draw [->] (3, -0.25) -- (3.5, -0.25);
-  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monot.}};
   \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
   \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
 
@@ -1484,7 +1482,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 
   \node () [] at (3.5, 0.5) {thread 1};
   \draw [->, dashed] (3,0) -- (3,-3.25);
-  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monot.}};
   \draw [->] (3, -1.25) -- (3.5, -1.25);
   \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
   \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
@@ -1534,7 +1532,7 @@ it uses explicit fences to synchronize the access to the global variable `x`.
 
   \node () [] at (3.5, 0.5) {thread 1};
   \draw [->, dashed] (3,0) -- (3,-3.25);
-  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monotonic}};
+  \node () [anchor=west] at (3.5, -0.5) {\texttt{load @a monot.}};
   \node () [anchor=west] at (3.5, -1.5) {\texttt{fence acquire}};
   \draw [->] (3, -2.25) -- (3.5, -2.25);
   \node () [anchor=west] at (3.5, -2.5) {\texttt{load @x}};
@@ -1958,8 +1956,8 @@ implement these intrinsics in the weak memory model.
 
 \bigskip
 
-All of these functions have following attributes (using GCC syntax
-`__attribute__` which is understood by Clang):
+All of these functions have following attributes (using GCC/Clang syntax
+`__attribute__`):
 
 `noinline`
 ~   to prevent inlining of these functions into their callers;
@@ -2313,8 +2311,8 @@ each function with the following algorithm.
     Strongly connected components of the control flow graph of the function are
     used to determine if an instruction is in a loop and successors of a loop.
 
-3.  If an instruction $i$ dominates an insertion point, `__divine_drop_register`
-    call for $i$ is inserted at this point.
+3.  If an instruction $i$ dominates an insertion point, $i$ is dropped at this
+    point using  `__divine_drop_register`.
 
 Furthermore, if the instruction in question is an `alloca`, it is treated
 specially. `alloca` cannot be zeroed until the local variable it represents is

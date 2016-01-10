@@ -128,9 +128,19 @@
 
 \usepackage{setspace}
 
-\oddsidemargin .85in
-\evensidemargin .65in
-\textwidth 12.7cm
+% Mornfall
+% \oddsidemargin .85in % 2.16 cm
+% \evensidemargin .65in % 1.65 cm
+% defaults:
+% \oddsidemargin 7.73203 mm % 70pt
+% \evensidemargin 24.6019 mm % 22pt
+\addtolength\textwidth{5pt} % about 129mm
+\addtolength\oddsidemargin{1cm}
+\addtolength\evensidemargin{-1cm}
+% \usepackage{layout, layouts}
+% \newcommand\DocLength[1]{%
+%      The value for \texttt{#1} is \printinunitsof{pt}\prntlen{\csname#1\endcsname}\par}
+
 
 \usepackage{enumitem}
 \providecommand{\tightlist}{%
@@ -139,7 +149,7 @@
   \setlength{\topsep}{0pt}%
   \setlength{\partopsep}{0pt}}
 
-\newcommand{\TODO}[1]{\textbf{\color{red}#1}}
+% \newcommand{\TODO}[1]{\textbf{\color{red}#1}}
 
 % autoref names
 \addto\extrasenglish{
@@ -161,7 +171,13 @@
 
 \newcommand{\antispaceatend}{\vspace*{-\topsep}}
 
+% \setlength{\overfullrule}{5pt} % TODO: remove
+
 \begin{document}
+
+% \DocLength{evensidemargin}
+% \DocLength{oddsidemargin}
+% \layout
 
 % initial pages from Mornfall + modifications
 

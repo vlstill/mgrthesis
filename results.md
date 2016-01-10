@@ -178,6 +178,8 @@ store buffer size.}
 
 ## Effects of Optimizations
 
+\label{sec:res:wm:tau}
+
 The optimizations described in \autoref{sec:trans:wm:tau} were first evaluated
 in the context of the TSO memory model simulation presented in \cite{SRB15}. The
 results of this initial evaluation can be seen in \autoref{tab:res:wm:opt:old}.
