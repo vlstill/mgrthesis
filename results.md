@@ -11,26 +11,26 @@ enabled (`--compression`) \cite{RSB15} and, unless explicitly stated otherwise,
 the default setting of $\tau+$ reduction (which includes the changes described
 in \autoref{sec:trans:tauextend}).
 
-Please note that the results in cases when the property does not hold depends
+Please note that the results in cases when the property does not hold depend
 on the timing and number of processors used for the evaluation. To make these
 results distinguishable, they are set in italics. Programs used in the
 evaluation are described in \autoref{tab:res:models}.
 
 \begin{table}
 \begin{tabularx}{\textwidth}{|lX|} \hline
-\texttt{simple} & A program similar to the one in \autoref{fig:trans:wm:sb}, two
+\texttt{simple} & A program similar to the one in \autoref{fig:trans:wm:sb}; two
 threads, each of them reads a value written by the other one. An assertion violation
 can be detected with total store order. Written in C++; does not use C++11 atomics. \\
 \hline
 \texttt{peterson} & A version of the well-known Peterson's mutual exclusion
-algorithm, valid under sequential consistency, not valid under total store order
+algorithm; valid under sequential consistency, not valid under total store order
 or any more relaxed model. Written in C++, no C++11 atomics. \\
 \hline
 \texttt{fifo} & A fast communication queue for producer-consumer use with one
-producer and one consumer. This is used in \divine when running in a distributed
-environment. The queue is designed for `x86`, it is correct unless stores can be
+producer and one consumer. This queue is used in \divine when running in a distributed
+environment. The queue is designed for \texttt{x86}; it is correct unless stores can be
 reordered. Written in C++, the queue itself does not use C++11 atomics, the unit
-test does use one relaxed (monotonic) atomic variable. \\
+test does use one relaxed (\textit{monotonic}) atomic variable. \\
 \hline
 \texttt{fifo-at} & A modification of \texttt{fifo} which uses C++11 atomics to
 ensure it works with memory models more relaxed than TSO. \\
@@ -40,7 +40,7 @@ race. \\
 \hline
 \texttt{hs-$T$-$N$-$E$} & A hight-performance, lock-free shared memory memory
 hash table used in \divine in shared memory setup~\cite{BRSW15}. Written in C++,
-uses C++11 atomics heavily, mostly sequential consistency is used for atomics.
+uses C++11 atomics heavily, mostly with the \textit{sequentially consistent} ordering.
 This model is parametrized; $T$ is the number of threads, $N$ is the number of
 elements inserted by each thread (elements inserted by each thread are
 distinct), and $E$ is the number of extra elements which are inserted by two
@@ -66,7 +66,7 @@ BEEM database \cite{beem}. It is a simulation of elevator planning. \\
 \label{sec:res:tau}
 
 \autoref{tab:res:tau} shows state space sizes of several models with the
-original $\tau+$ reductions and with the extensions described in
+original $\tau+$ reduction and with the extensions described in
 \autoref{sec:trans:tauextend}. It also includes state space sizes in \divine
 3.3, which is the version before any modification described in this thesis.
 While both \divine 3.3 and the new version with the original reduction implement
@@ -178,16 +178,12 @@ store buffer size.}
 
 ## Effects of Optimizations
 
-The optimizations described in \autoref{sec:trans:wm:tau} were first evaluated in
-the context of the TSO memory model simulation presented in \cite{SRB15}. The
-results of this initial evaluation can be seen in \autoref{tab:res:wm:opt:old},
-*MEMICS* stands for the original version from \cite{SRB15}, *+ Load Private*
-allows store buffers to be bypassed for memory locations which are dynamically
-detected to be thread private, and *+ Local* also avoids the transformation for
-instructions which manipulate local variables which do not escape the scope of the
-function in which they are defined. This evaluation does not include any changes
-in $\tau+$ reduction. We can see that the effects of the optimizations are
-significant, especially for private loads optimization.
+The optimizations described in \autoref{sec:trans:wm:tau} were first evaluated
+in the context of the TSO memory model simulation presented in \cite{SRB15}. The
+results of this initial evaluation can be seen in \autoref{tab:res:wm:opt:old}.
+This evaluation does not include any changes in $\tau+$ reduction. We can see
+that the effects of the optimizations are significant, especially for private
+loads optimization.
 
 \begin{table}[tp]
 \begin{tabularx}{\textwidth}{|l|c|CC|CC|} \hline
@@ -218,7 +214,7 @@ note that while the original transformation bypassed store buffers for
 thread-private stores, the version proposed in this work does not, as this
 optimization is not correct for the \llvm memory model. Nevertheless, the new
 version performs an order of magnitude better in all cases, both thanks to
-enhanced state space reductions and a more efficient implementation.[^efimpl]
+enhanced state space reductions and more efficient implementation.[^efimpl]
 
 [^efimpl]: Namely, the flusher thread is now implemented in such a way that is
 is guaranteed that if the store buffer associated with it contains a single
@@ -278,7 +274,7 @@ Name & No opt. & \multicolumn{2}{c|}{+ Locals} & \multicolumn{2}{c|}{+ Load Priv
 optimization on the \llvm memory model simulation. The \textit{No opt.} column
 includes none of the optimizations from \autoref{sec:trans:wm:tau}, \textit{+
 Locals} does not instrument stores into local variables which do not escape the
-scope of the function, and \textit{+ Load Private} also bypasses store buffer
+scope of the function, and \textit{+ Load Private} also bypasses store buffers
 for loads from memory which is considered thread-private by \divine.}
 \label{tab:res:wm:opt}
 \end{table}
@@ -291,7 +287,7 @@ is thanks to the improved control flow cycle detection mechanism and the
 independent loads optimization has no effect. The cause is that `load`, `store`,
 and `fence` instructions are replaced with calls, and without the control flow
 cycle detection improvement it was not possible to perform two calls to the same
-function as part of one edge in the state space.
+function on one edge in the state space.
 
 \begin{table}
 \newcommand{\tline}[3]{\directlua{tex.sprint( wmtauline( "\luatexluaescapestring{#1}", { #2 }, "\luatexluaescapestring{#3}" ) )}}
@@ -336,7 +332,7 @@ Name & Orig. $\tau+$ & + Control Flow & + Indep. Loads & New & Reduction \\
 \end{tabularx}
 
 \caption{Effects of extended $\tau+$ reduction on the \llvm memory model
-simulation.}
+simulation. \textit{Reduction} shows the best achieved reduction.}
 \label{tab:res:wm:tau}
 \end{table}
 
@@ -352,7 +348,7 @@ cost global in tables, the `globals` pass in \lart), register zeroing
 (\autoref{sec:trans:opt:lzero}, register zero in tables, the `register` pass in
 \lart) and an older version of register zeroing pass which zeroes only values of
 local variables (`alloca` zero in tables, the `alloca` pass in \lart). We also
-evaluated combinations of these optimizations. Please note that order of the
+evaluated combinations of these optimizations. Please note that the order of the
 combination of these passes matter, constant local variable elimination must
 precede register (or local variable) zeroing. Constant global variable
 annotation does not interfere with any of the other reductions.
@@ -360,7 +356,7 @@ annotation does not interfere with any of the other reductions.
 In \autoref{tab:res:opt:st} we can see the effect of these optimizations on the
 state space size. The only optimization with visible effect on state space size
 is constant local variable elimination. The effect of constant local variable
-elimination not large and it is likely due to elimination of some registers
+elimination in not large and it is likely due to elimination of some registers
 which could have been used to distinguish otherwise equivalent states.
 
 In \autoref{tab:res:opt:mem} we can see the effect of the same optimizations on
@@ -372,8 +368,8 @@ effect on memory requirements.
 
 [^tc]: We use tree compression \cite{RSB15}. The efficiency of this reduction
 technique depends on the layout and the size of the state and on the pattens of
-changes in states. For this reason, even a sight variation in state layout can
-change measurable difference in compression ratio. Although these differences
+changes in states. For this reason, even a slight variation in state layout can
+cause measurable difference in compression ratio. Although these differences
 are much smaller than the overall effect of the compression, they are still
 visible in the table.
 
