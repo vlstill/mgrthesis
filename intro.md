@@ -86,13 +86,14 @@ parallel programs: memory models are hard to reason about and it is often hard
 to specify the desired behaviour in the programming language in question. While
 hardware commonly has support to ensure particular ordering of memory
 operations, this is often not supported by programming languages, such as older
-versions of C and C++. With newer programming languages, such as C11/C++11, it
-is possible to specify the behaviour of the program precisely. Nevertheless, this
-is still a difficult problem, especially for high-performance tasks when it is
-desirable to use the weakest synchronization which is sufficient for correctness.
-For these reasons, it is important to be able to verify programs under relaxed
-memory models. This is, however, not the case for many verifiers, even if they
-aim at verification of real-world programs.
+versions of C and C++. With newer programming languages, such as C11 and C++11, it
+is possible to specify the behaviour of the program precisely \cite{isoc11draft,
+isocpp11draft}. Nevertheless, this is still a difficult problem, especially for
+high-performance tasks when it is desirable to use the weakest synchronization
+which is sufficient for correctness.  For these reasons, it is important to be
+able to verify programs under relaxed memory models. This is, however, not the
+case for many verifiers, even if they aim at verification of real-world
+programs.
 
 To further complicate the matter of relaxed memory models, the actual memory
 models implemented in hardware differ with CPU architectures, vendors, or even
@@ -103,9 +104,9 @@ To allow analysis of programs under relaxed memory models, theoretical memory
 models were proposed, namely *Total Store Order* (TSO) \cite{SPARC94} and
 *Partial Store Order* (PSO) \cite{SPARC94}. Also, programming language
 standards, such as C++11 and \llvm, define memory models for programs written in
-the particular language \cite{llvm:atomics}. These theoretical memory models are
-usually described as constraints to allowed reordering of instructions which
-manipulate memory.
+the particular language \cite{isocpp11draft, llvm:atomics}. These theoretical
+memory models are usually described as constraints to allowed reordering of
+instructions which manipulate memory.
 
 In those theoretical models, an update may be deferred for an infinite amount of
 time. Therefore, even a finite state program that is instrumented with a

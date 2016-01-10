@@ -494,7 +494,7 @@ in the transformed program's runs. This is, however, not distinguishable in
 ### Implementation
 
 To calculate which `alloca` instructions can reach a function exit a version of
-the standard reaching definitions analysis is used. Using this analysis, we
+the standard reaching definitions analysis \cite{compilers} is used. Using this analysis, we
 compute which `alloca` instruction values reach the end of each basic block of
 the function and for every such value which does not dominate the end of the
 basic block a $\varphi$-node is added. For each basic block the algorithm also
