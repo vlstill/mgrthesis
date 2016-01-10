@@ -1,4 +1,4 @@
-We showed that \llvm transformations are an useful preprocessing step for model
+We showed that \llvm transformations are a useful preprocessing step for model
 checking of real-world programs, namely in verification of C and C++ using the
 \divine explicit-state model checker. We showed that \llvm transformations are
 usable in many ways, both to extend verifier's abilities and to decrease the

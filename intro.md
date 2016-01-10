@@ -6,12 +6,12 @@ testing, can be applied to parallel programs, they are unable to reliably find
 bugs caused by data races.
 
 The underlying reason is that data races occur when actions performed by threads
-in parallel are interleaved in an unexpected order which exposes the problem. This
-interleaving might be, however, quite rare and therefore it is often hard to
-trigger this bug by testing. Furthermore, even if the bug can be triggered by
-testing, it is often hard to reproduce and debug it, as common debugging
-approaches, including debuggers and logging often interfere with testing as they
-can hide the particular erroneous run.
+in parallel are interleaved in an unexpected order which exposes the problem.
+This interleaving might be, however, quite rare and therefore it is often hard
+to reveal that particular erroneous interleaving during testing. Furthermore,
+even if the bug can be triggered by testing, it is often hard to reproduce and
+debug it, as common debugging approaches, including debuggers and logging often
+interfere with testing as they can hide the particular erroneous run.
 
 # Explicit-state Model Checking
 
