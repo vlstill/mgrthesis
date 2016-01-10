@@ -803,7 +803,7 @@ created by a single `store` instruction and contains the following fields:
 
 \noindent
 Apart from store entries, a store buffer can contain *fence entries* which
-correspond to `fence` instructions with at least release ordering (write fence).
+correspond to `fence` instructions with at least *release* ordering (write fence).
 Fence entries have following fields:
 
 *   the **atomic ordering** of the fence,
@@ -1189,8 +1189,8 @@ shown).
 \end{tikzpicture}
 
 4.  The entry for `@a` in the store buffer of thread 0 is flushed into memory, but
-    the entry is still remembered in the store buffer as it is a release entry and
-    future loads (if they have at least an acquire ordering) will have to
+    the entry is still remembered in the store buffer as it is a *release* entry and
+    future loads (if they have at least an *acquire* ordering) will have to
     synchronize with it. It would be also possible to first flush the entry for
     `@x`; in this case it would be removed from the store buffer as it is the
     oldest entry, and therefore no explicit synchronization is necessary.
@@ -1248,7 +1248,7 @@ shown).
 \end{tikzpicture}
 
 5.  When the first instruction of thread 1 is executed, a synchronization takes
-    place. The acquire load on `@a` forces the matching, flushed entry in the
+    place. The *acquire* load on `@a` forces the matching, flushed entry in the
     store buffer of thread 0 to be evicted; however, this is a *release* entry
     so all the entries which precede it will have to be flushed and evicted too.
 
@@ -2038,7 +2038,7 @@ custom specification
     For example, TSO can be specified as `all=acq_rel`, the equivalent of `x86` can
     be specified as `all=seq_cst,load=acquire,store=release`.
 
-[^rel]: In this case `relaxed` is used to denote the \llvm's monotonic ordering
+[^rel]: In this case `relaxed` is used to denote the \llvm's *monotonic* ordering
 to match the name used for this ordering in the C++11/C11 standard.
 
 

@@ -347,8 +347,8 @@ writes which happen-before the fence *R* also happen-before the fence *A*. An
 illustration how this can be used to implement a spin-lock can be found in
 \autoref{fig:llvm:fence}.
 
-If the fence has sequentially consistent ordering it also participates in
-a global program order of all sequentially consistent operations. A fence is not
+If the fence has *sequentially consistent* ordering it also participates in
+a global program order of all *sequentially consistent* operations. A fence is not
 allowed to have *monotonic*, *unordered*, or *not atomic* ordering.
 
 \begFigure[tp]
@@ -396,11 +396,11 @@ while.end:
 
 \antispaceatend
 \begCaption
-An example of a use of `fence` instruction. The `release` fence (line 6 in C++,
-4 in \llvm) synchronizes with the `acquire` fence (line 12 in C++, 19 in \llvm)
+An example of a use of `fence` instruction. The *release* fence (line 6 in C++,
+4 in \llvm) synchronizes with the *acquire* fence (line 12 in C++, 19 in \llvm)
 because there exists an atomic object `flag` and an operation which modifies it
-with a *monotonic* ordering (lines 7, 5) after the `release` fence, and reads it,
-again with a *monotonic* ordering (lines 11, 14), before the `acquire` fence.
+with a *monotonic* ordering (lines 7, 5) after the *release* fence, and reads it,
+again with a *monotonic* ordering (lines 11, 14), before the *acquire* fence.
 \endCaption
 \label{fig:llvm:fence}
 \endFigure
