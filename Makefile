@@ -67,3 +67,29 @@ rawdata :
 	rsync -avc --progress /home/xstill/DiVinE/mainline/benchmark/ rawdata/local/
 
 .PHONY: rawdata
+
+
+archive : thesis.pdf thesis-print.pdf
+	rm archive llvmtrans -rf
+	# make sure all links really link...
+	make -B thesis.pdf thesis-print.pdf
+	make -B thesis.pdf thesis-print.pdf
+	mkdir archive
+	cp thesis.pdf archive/
+	mkdir llvmtrans
+	cp README.md llvmtrans/
+	cd llvmtrans && darcs get /home/xstill/DiVinE/next divine
+	cp archive_README.md llvmtrans/divine/README.md
+	cd llvmtrans && git clone https://github.com/vlstill/mgrthesis.git thesis
+	cp thesis.pdf llvmtrans/thesis/
+	rm llvmtrans/thesis/.git* -rf
+	tar cavf llvmtrans.tar.gz llvmtrans
+	mv llvmtrans.tar.gz archive
+
+check :
+	rm llvmtrans -rf
+	tar xafv archive/llvmtrans.tar.gz
+	cd llvmtrans/thesis && make
+	cd llvmtrans/divine && chmod +x configure && ./configure && make lart divine
+
+.PHONY: archive check
